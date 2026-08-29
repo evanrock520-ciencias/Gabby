@@ -1,0 +1,8 @@
+.vscode/
+
+# Rust
+server/target
+*.lock
+
+# Go
+client/bin/
