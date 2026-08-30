@@ -11,7 +11,7 @@ const (
 	TEXT        TypeC2S = "TEXT"
 	PUBLIC_TEXT TypeC2S = "PUBLIC_TEXT"
 	NEW_ROOM    TypeC2S = "NEW_ROOM"
-	INVITE      TypeC2S = "INVITATE"
+	INVITE      TypeC2S = "INVITE"
 	JOIN_ROOM   TypeC2S = "JOIN_ROOM"
 	ROOM_USERS  TypeC2S = "ROOM_USERS"
 	ROOM_TEXT   TypeC2S = "ROOM_TEXT"
@@ -22,7 +22,7 @@ const (
 type ClientMessage struct {
 	Type      TypeC2S  `json:"type,omitempty"`
 	Username  string   `json:"username,omitempty"`
-	Roomname  string   `json:"room,omitempty"`
+	Roomname  string   `json:"roomname,omitempty"`
 	Status    Status   `json:"status,omitempty"`
 	Text      string   `json:"text,omitempty"`
 	Usernames []string `json:"usernames,omitempty"`
