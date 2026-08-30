@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"client/internal/ui"
+	"fmt"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
 
 func main() {
-	fmt.Println("Este es el cliente.")
+	p := tea.NewProgram(ui.Model{}, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Println(err)
+	}
 }
