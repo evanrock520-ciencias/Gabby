@@ -1,11 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Debug, PartialEq, Deserialize)]
+#[serde(rename = "INVALID")]
 pub enum Status {
-    #[serde(rename = "ACTIVE")]
     Active,
-    #[serde(rename = "AWAY")]
     Away,
-    #[serde(rename = "BUSY")]
     Busy,
 }
