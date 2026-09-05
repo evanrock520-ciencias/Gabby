@@ -8,12 +8,9 @@ import (
 )
 
 type ListModel struct {
-	Title   string
-	Width   int
-	Height  int
-	Focused bool
-	Cursor  int
-	Items   []string
+	Panel
+	Title string
+	Items []string
 }
 
 func NewListModel(title string, items []string) ListModel {
@@ -32,12 +29,12 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up":
-			if m.Cursor > 0 {
-				m.Cursor--
+			if m.cursor > 0 {
+				m.cursor--
 			}
 		case "down":
-			if m.Cursor < len(m.Items)-1 {
-				m.Cursor++
+			if m.cursor < len(m.Items)-1 {
+				m.cursor++
 			}
 		}
 	}
@@ -49,23 +46,23 @@ func (m ListModel) IsCapturingInput() bool {
 }
 
 func (m ListModel) View() string {
-	boxStyle := styles.BoxStyle.Width(m.Width).Height(m.Height)
+	boxStyle := styles.BoxStyle.Width(m.width).Height(m.height)
 
-	if m.Focused {
+	if m.IsFocused() {
 		boxStyle = boxStyle.BorderForeground(styles.PrimaryColor)
 	}
 
 	var sb strings.Builder
 	for i, item := range m.Items {
 		itemStyle := styles.TextStyle
-		if m.Focused && i == m.Cursor {
-			itemStyle = styles.SelectedStyle
+		if m.IsFocused() && i == m.cursor {
+			itemStyle = styles.SelectedStyle.Width(m.width - 2)
 		}
 		sb.WriteString(itemStyle.Render(item))
 		sb.WriteString("\n")
 	}
 
-	innerWidth := max(0, m.Width-2)
+	innerWidth := max(0, m.width-2)
 	headerText := styles.HeaderTitleStyle.Render(m.Title)
 	divider := styles.DividerStyle.Render(strings.Repeat("─", innerWidth))
 
@@ -73,8 +70,8 @@ func (m ListModel) View() string {
 }
 
 func (m ListModel) SelectedItem() (string, bool) {
-	if m.Cursor >= 0 && m.Cursor < len(m.Items) {
-		return m.Items[m.Cursor], true
+	if m.cursor >= 0 && m.cursor < len(m.Items) {
+		return m.Items[m.cursor], true
 	}
 	return "", false
 }

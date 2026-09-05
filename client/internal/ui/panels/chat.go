@@ -5,13 +5,13 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type ChatModel struct {
-	Width     int
-	Height    int
-	Focused   bool
+	Panel
 	TextInput textinput.Model
+	ChatName  string
 }
 
 func NewChatModel() ChatModel {
@@ -21,6 +21,7 @@ func NewChatModel() ChatModel {
 	ti.CharLimit = 156
 	return ChatModel{
 		TextInput: ti,
+		ChatName:  "Global",
 	}
 }
 
@@ -58,16 +59,18 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 }
 
 func (m ChatModel) View() string {
-	boxStyle := styles.BoxStyle.Width(m.Width).Height(m.Height)
+	boxStyle := styles.BoxStyle.Width(m.width).Height(m.height)
+	header := styles.ChatNameStyle.Width(m.width - 2).Render(m.ChatName)
+	contentStyle := lipgloss.NewStyle().Width(m.width - 2).Height(m.height - 4)
 
-	if m.Focused {
+	if m.IsFocused() {
 		boxStyle = boxStyle.BorderForeground(styles.PrimaryColor)
 	}
 
-	messageBarStyle := styles.TextInputStyle.Width(m.Width - 4) // -4 Por los bordes de el panel y del input.
+	messageBarStyle := styles.TextInputStyle.Width(m.width - 4) // -4 Por los bordes de el panel y del input.
 	if m.IsCapturingInput() {
 		messageBarStyle = messageBarStyle.BorderForeground(styles.AccentColor)
 	}
 
-	return boxStyle.Render(messageBarStyle.Render(m.TextInput.View()))
+	return boxStyle.Render(header + "\n" + contentStyle.Render() + "\n" + messageBarStyle.Render(m.TextInput.View()))
 }
