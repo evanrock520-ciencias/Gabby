@@ -7,4 +7,5 @@ var (
 	TextStyle        = lipgloss.NewStyle().Foreground(TextColor)
 	SelectedStyle    = lipgloss.NewStyle().Foreground(TextColor).Background(AccentColor)
 	HeaderTitleStyle = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true)
+	DividerStyle     = lipgloss.NewStyle().Foreground(MutedColor)
 )
