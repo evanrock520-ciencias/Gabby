@@ -44,6 +44,10 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	return m, nil
 }
 
+func (m ListModel) IsCapturingInput() bool {
+	return false
+}
+
 func (m ListModel) View() string {
 	boxStyle := styles.BoxStyle.Width(m.Width).Height(m.Height)
 
