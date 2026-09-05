@@ -1,14 +1,6 @@
-use crate::protocol::result::Result;
-use serde::Serialize;
+use crate::protocol::{incoming::TypeC2S, outcoming::TypeS2C, result::Result};
 
-use crate::protocol::{incoming::TypeC2S, outcoming::TypeS2C};
-
-pub struct Response {
-    type_s2c: TypeS2C,
-    type_c2s: TypeC2S,
-    result: Result,
-    extra: Option<String>,
+/// Construye un mensaje de respuesta del servidor (S2C) a una operación de cliente.
+pub fn new_response(operation: TypeC2S, result: Result, extra: Option<String>) -> TypeS2C {
+    TypeS2C::response_message(operation, result, extra)
 }
-
-// TODO: Implementar la serialización de respuestas.
-impl Response {}

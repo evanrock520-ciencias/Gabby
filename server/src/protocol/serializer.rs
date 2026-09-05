@@ -1,7 +1,7 @@
-use crate::protocol::{incoming::ClientMessage, outcoming::ServerMessage};
+use crate::protocol::{incoming::ClientMessage, outcoming::TypeS2C};
 use serde_json;
 
-pub fn serialize(msg: &ServerMessage) -> Result<String, serde_json::Error> {
+pub fn serialize(msg: &TypeS2C) -> Result<String, serde_json::Error> {
     serde_json::to_string(msg)
 }
 
@@ -14,6 +14,7 @@ mod tests {
 
     use crate::protocol::{
         incoming::TypeC2S::{self},
+        outcoming::TypeS2C,
         status::Status::{Away, Busy},
     };
 
@@ -143,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_serialize_new_user_message() {
-        let msg = ServerMessage::new_user_message("Evan".to_string());
+        let msg = TypeS2C::new_user_message("Evan".to_string());
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "NEW_USER")));
         assert!(data.contains(&field("username", "Evan")));
@@ -151,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_serialize_new_status_message() {
-        let msg = ServerMessage::new_status_message("Evan".to_string(), Busy);
+        let msg = TypeS2C::new_status_message("Evan".to_string(), Busy);
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "NEW_STATUS")));
         assert!(data.contains(&field("username", "Evan")));
@@ -161,7 +162,7 @@ mod tests {
     #[test]
     fn test_serialize_user_list_message() {
         let usernames = vec!["Derek".to_string(), "Yahel".to_string(), "Luis".to_string()];
-        let msg = ServerMessage::user_list_message(Some(usernames));
+        let msg = TypeS2C::user_list_message(usernames);
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "USER_LIST")));
         assert!(data.contains(&field_array(
@@ -172,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_serialize_text_from_message() {
-        let msg = ServerMessage::text_from_message("Evan".to_string(), "Hola amigos".to_string());
+        let msg = TypeS2C::text_from_message("Evan".to_string(), "Hola amigos".to_string());
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "TEXT_FROM")));
         assert!(data.contains(&field("username", "Evan")));
@@ -181,8 +182,7 @@ mod tests {
 
     #[test]
     fn test_serialize_public_text_from_message() {
-        let msg =
-            ServerMessage::public_text_from_message("Evan".to_string(), "Hola amigos".to_string());
+        let msg = TypeS2C::public_text_from_message("Evan".to_string(), "Hola amigos".to_string());
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "PUBLIC_TEXT_FROM")));
         assert!(data.contains(&field("username", "Evan")));
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_serialize_joined_room_message() {
-        let msg = ServerMessage::joined_room_message("Evan".to_string(), "Sala 1".to_string());
+        let msg = TypeS2C::joined_room_message("Evan".to_string(), "Sala 1".to_string());
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "JOINED_ROOM")));
         assert!(data.contains(&field("username", "Evan")));
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_serialize_room_user_list_message() {
         let usernames = vec!["Derek".to_string(), "Yahel".to_string(), "Luis".to_string()];
-        let msg = ServerMessage::room_user_list_message("Sala 1".to_string(), usernames);
+        let msg = TypeS2C::room_user_list_message("Sala 1".to_string(), usernames);
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "ROOM_USER_LIST")));
         assert!(data.contains(&field("roomname", "Sala 1")));
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_serialize_room_text_from_message() {
-        let msg = ServerMessage::room_text_from_message(
+        let msg = TypeS2C::room_text_from_message(
             "Sala 1".to_string(),
             "Evan".to_string(),
             "Hola amigos".to_string(),
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_serialize_left_room_message() {
-        let msg = ServerMessage::left_room_message("Evan".to_string(), "Sala 1".to_string());
+        let msg = TypeS2C::left_room_message("Evan".to_string(), "Sala 1".to_string());
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "LEFT_ROOM")));
         assert!(data.contains(&field("username", "Evan")));
@@ -236,9 +236,56 @@ mod tests {
 
     #[test]
     fn test_serialize_disconnected_message() {
-        let msg = ServerMessage::disconnected_message("Evan".to_string());
+        let msg = TypeS2C::disconnected_message("Evan".to_string());
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "DISCONNECTED")));
         assert!(data.contains(&field("username", "Evan")));
+    }
+
+    #[test]
+    fn test_serialize_response_message() {
+        let msg = crate::protocol::response::new_response(
+            TypeC2S::Identify,
+            crate::protocol::result::Result::Success,
+            None,
+        );
+        let data = serialize(&msg).unwrap();
+        assert!(data.contains(&field("type", "RESPONSE")));
+        assert!(data.contains(&field("operation", "IDENTIFY")));
+        assert!(data.contains(&field("result", "SUCCESS")));
+        assert!(!data.contains("extra"));
+    }
+
+    #[test]
+    fn test_serialize_response_message_with_extra() {
+        let msg = TypeS2C::response_message(
+            TypeC2S::Identify,
+            crate::protocol::result::Result::UserAlreadyExists,
+            Some("Username already taken".to_string()),
+        );
+        let data = serialize(&msg).unwrap();
+        assert!(data.contains(&field("type", "RESPONSE")));
+        assert!(data.contains(&field("operation", "IDENTIFY")));
+        assert!(data.contains(&field("result", "USER_ALREADY_EXISTS")));
+        assert!(data.contains(&field("extra", "Username already taken")));
+    }
+
+    #[test]
+    fn test_serialize_invitation_message() {
+        let msg = TypeS2C::invitation_message("Evan".to_string(), "Sala 1".to_string());
+        let data = serialize(&msg).unwrap();
+        assert!(data.contains(&field("type", "INVITATION")));
+        assert!(data.contains(&field("username", "Evan")));
+        assert!(data.contains(&field("roomname", "Sala 1")));
+    }
+
+    #[test]
+    fn test_roundtrip_types2c_variants() {
+        let original = TypeS2C::NewUser {
+            username: "Evan".to_string(),
+        };
+        let json_str = serialize(&original).unwrap();
+        let parsed: TypeS2C = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(original, parsed);
     }
 }
