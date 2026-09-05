@@ -1,6 +1,8 @@
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+)
 
 var (
 	BoxStyle         = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
@@ -9,4 +11,7 @@ var (
 	HeaderTitleStyle = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true)
 	DividerStyle     = lipgloss.NewStyle().Foreground(MutedColor)
 	TextInputStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+	ChatNameStyle    = lipgloss.NewStyle().Foreground(TextColor).Background(AccentColor).Align(lipgloss.Center)
+	StatusStyle      = lipgloss.NewStyle().Bold(true)
+	KeymapsStyle     = lipgloss.NewStyle().Foreground(MutedColor)
 )
