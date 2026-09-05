@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"client/internal/protocol"
 	"client/internal/ui/panels"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,12 +17,13 @@ const (
 )
 
 type Model struct {
-	width      int
-	heigth     int
-	focus      Focus
-	roomsModel panels.ListModel
-	usersModel panels.ListModel
-	chatModel  panels.ChatModel
+	width       int
+	heigth      int
+	focus       Focus
+	roomsModel  panels.ListModel
+	usersModel  panels.ListModel
+	chatModel   panels.ChatModel
+	footerModel panels.FooterModel
 }
 
 func (m Model) Init() tea.Cmd {
@@ -37,14 +39,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.heigth = msg.Height
 
 		// Los paneles tienen bordes que ocupan dos carácteres más de altura y de ancho.
-		m.roomsModel.Width = m.width/4 - 2
-		m.roomsModel.Height = (m.heigth)/2 - 2
+		m.roomsModel.SetSize(m.width/4-2, (m.heigth/2)-3)
+		(m.usersModel.SetSize(m.width/4-2, m.heigth-(m.heigth/2)-3-1))
 
-		m.usersModel.Width = m.width/4 - 2
-		m.usersModel.Height = (m.heigth)/2 - 2
+		m.chatModel.SetSize(m.width-(m.width/4)-2, m.heigth-5)
 
-		m.chatModel.Width = m.width - (m.width / 4) - 2
-		m.chatModel.Height = m.heigth - 2
+		m.footerModel.SetSize(m.width, 3)
 
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
@@ -104,9 +104,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) syncFocus() {
-	m.usersModel.Focused = m.focus == Users
-	m.roomsModel.Focused = m.focus == Rooms
-	m.chatModel.Focused = m.focus == Chat
+	m.usersModel.SetFocus(m.focus == Users)
+	m.roomsModel.SetFocus(m.focus == Rooms)
+	m.chatModel.SetFocus(m.focus == Chat)
 }
 
 func (m Model) activePanel() panels.InputCapturer {
@@ -126,21 +126,26 @@ func (m Model) View() string {
 	roomsView := m.roomsModel.View()
 	usersView := m.usersModel.View()
 	chatView := m.chatModel.View()
+	footerView := m.footerModel.View()
 	sidebar := lipgloss.JoinVertical(lipgloss.Top, roomsView, usersView)
-	appView := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
+	panels := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
+	appView := lipgloss.JoinVertical(lipgloss.Top, panels, footerView)
 	return appView
 }
 
 // Función para poblar los datos de la interfaz
 func NewModel() Model {
+	keymaps := map[string]string{"q": "Exit", "i": "Invite"}
 	usersModel := panels.NewListModel("[2] Users", []string{"Yahel", "Derek", "Luis", "Sofia"})
 	roomsModel := panels.NewListModel("[1] Rooms", []string{"Sala 1", "Sala 2", "Sala 3", "Sala 4"})
 	chatModel := panels.NewChatModel()
+	footerModel := panels.FooterModel{Keymaps: keymaps, Username: "Evan Miranda", Status: protocol.ACTIVE}
 	m := Model{
-		focus:      Rooms,
-		usersModel: usersModel,
-		roomsModel: roomsModel,
-		chatModel:  chatModel,
+		focus:       Rooms,
+		usersModel:  usersModel,
+		roomsModel:  roomsModel,
+		chatModel:   chatModel,
+		footerModel: footerModel,
 	}
 	m.syncFocus()
 	return m
