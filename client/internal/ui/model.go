@@ -19,8 +19,8 @@ type Model struct {
 	width      int
 	heigth     int
 	focus      Focus
-	roomsModel panels.RoomsModel
-	usersModel panels.UsersModel
+	roomsModel panels.ListModel
+	usersModel panels.ListModel
 	chatModel  panels.ChatModel
 }
 
@@ -56,6 +56,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focus = Users
 		case "3":
 			m.focus = Chat
+		default:
+			var cmd tea.Cmd
+			switch m.focus {
+			case Rooms:
+				m.roomsModel, cmd = m.roomsModel.Update(msg)
+			case Users:
+				m.usersModel, cmd = m.usersModel.Update(msg)
+			case Chat:
+				var chatMod tea.Model
+				chatMod, cmd = m.chatModel.Update(msg)
+				m.chatModel = chatMod.(panels.ChatModel)
+			}
+			return m, cmd
 		}
 	}
 	return m, nil
@@ -73,4 +86,11 @@ func (m Model) View() string {
 	sidebar := lipgloss.JoinVertical(lipgloss.Top, roomsView, usersView)
 	appView := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
 	return appView
+}
+
+// Función para poblar los datos de la interfaz
+func NewModel() Model {
+	usersModel := panels.NewListModel("[2] Users", []string{"Yahel", "Derek", "Luis", "Sofia"})
+	roomsModel := panels.NewListModel("[1] Rooms", []string{"Sala 1", "Sala 2", "Sala 3", "Sala 4"})
+	return Model{usersModel: usersModel, roomsModel: roomsModel}
 }
