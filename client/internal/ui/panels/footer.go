@@ -9,15 +9,27 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type Keymap struct {
+	key    string
+	action string
+}
+
+func NewKeymap(key string, action string) Keymap {
+	return Keymap{
+		key:    key,
+		action: action,
+	}
+}
+
 type FooterModel struct {
 	Layout
-	Keymaps map[string]string
+	Keymaps []Keymap
 	// Probablemente convenga utilizar una referencia a un tipo usuario para actualizar la interfaz
 	Username string
 	Status   protocol.Status
 }
 
-func NewFooterModel(keymaps map[string]string, username string, status protocol.Status) FooterModel {
+func NewFooterModel(keymaps []Keymap, username string, status protocol.Status) FooterModel {
 	return FooterModel{
 		Keymaps:  keymaps,
 		Username: username,
@@ -38,8 +50,8 @@ func (m FooterModel) View() string {
 	footerStyle := lipgloss.NewStyle().Width(availableWidth).MarginLeft(1).MarginRight(1).Height(3)
 
 	var sb strings.Builder
-	for key, action := range m.Keymaps {
-		sb.WriteString(styles.KeymapsStyle.Render("● " + key + " - " + action))
+	for _, keymap := range m.Keymaps {
+		sb.WriteString(styles.KeymapsStyle.Render("● " + keymap.key + " - " + keymap.action))
 		sb.WriteString("    ")
 	}
 
