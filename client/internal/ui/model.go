@@ -16,6 +16,18 @@ const (
 	Chat
 )
 
+var (
+	defaultKeymaps = []panels.Keymap{
+		panels.NewKeymap("q", "Exit"),
+		panels.NewKeymap("c", "Create Room"),
+		panels.NewKeymap("i", "Invitate"),
+	}
+	modalKeymaps = []panels.Keymap{
+		panels.NewKeymap("enter", "Confirm"),
+		panels.NewKeymap("esc", "Cancel"),
+	}
+)
+
 type Model struct {
 	width       int
 	heigth      int
@@ -24,6 +36,7 @@ type Model struct {
 	usersModel  panels.ListModel
 	chatModel   panels.ChatModel
 	footerModel panels.FooterModel
+	activeModal *panels.ModalModel
 }
 
 func (m Model) Init() tea.Cmd {
@@ -46,9 +59,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.footerModel.SetSize(m.width, 3)
 
+		if m.activeModal != nil {
+			m.activeModal.SetSize(m.width, max(0, m.heigth-3)) // -3 por el footer
+		}
+
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
+		}
+
+		// Si hay un modal activo, consume todo el teclado
+		if m.activeModal != nil {
+			updatedModal, cmd := m.activeModal.Update(msg)
+			m.activeModal = &updatedModal
+			if !m.activeModal.IsCapturingInput() {
+				m.activeModal = nil
+				m.footerModel.Keymaps = defaultKeymaps
+				m.syncFocus()
+			}
+			return m, cmd
 		}
 
 		// Si el panel activo está en modo captura de texto, se delega todo el teclado
@@ -66,41 +95,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Modo Navegación
-		switch msg.String() {
-		case "q":
-			return m, tea.Quit
-		case "1":
-			m.focus = Rooms
-			m.syncFocus()
-			m.chatModel.TextInput.Blur()
-		case "2":
-			m.focus = Users
-			m.syncFocus()
-			m.chatModel.TextInput.Blur()
-		case "3":
-			m.focus = Chat
-			m.syncFocus()
-			cmd := m.chatModel.TextInput.Focus()
-			return m, cmd
-		default:
-			var cmd tea.Cmd
-			switch m.focus {
-			case Rooms:
-				m.roomsModel, cmd = m.roomsModel.Update(msg)
-			case Users:
-				m.usersModel, cmd = m.usersModel.Update(msg)
-			case Chat:
-				m.chatModel, cmd = m.chatModel.Update(msg)
-			}
-			return m, cmd
-		}
+		return m, m.handleNavegation(msg)
 
 	default:
 		var cmd tea.Cmd
+		if m.activeModal != nil {
+			updatedModal, cmd := m.activeModal.Update(msg)
+			m.activeModal = &updatedModal
+			return m, cmd
+		}
 		m.chatModel, cmd = m.chatModel.Update(msg)
 		return m, cmd
 	}
 	return m, nil
+}
+
+func (m *Model) openModal(modal panels.ModalModel) tea.Cmd {
+	modal.SetSize(m.width, max(0, m.heigth-3))
+	m.chatModel.TextInput.Blur()
+	m.footerModel.Keymaps = modalKeymaps
+	cmd := modal.TextInput.Focus()
+	m.activeModal = &modal
+	return cmd
 }
 
 func (m *Model) syncFocus() {
@@ -123,30 +139,74 @@ func (m Model) activePanel() panels.InputCapturer {
 }
 
 func (m Model) View() string {
-	roomsView := m.roomsModel.View()
-	usersView := m.usersModel.View()
-	chatView := m.chatModel.View()
+	var mainView string
+
+	if m.activeModal != nil {
+		mainView = m.activeModal.View()
+	} else {
+		roomsView := m.roomsModel.View()
+		usersView := m.usersModel.View()
+		chatView := m.chatModel.View()
+		sidebar := lipgloss.JoinVertical(lipgloss.Top, roomsView, usersView)
+		mainView = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
+	}
+
 	footerView := m.footerModel.View()
-	sidebar := lipgloss.JoinVertical(lipgloss.Top, roomsView, usersView)
-	panels := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
-	appView := lipgloss.JoinVertical(lipgloss.Top, panels, footerView)
-	return appView
+	return lipgloss.JoinVertical(lipgloss.Top, mainView, footerView)
 }
 
 // Función para poblar los datos de la interfaz
 func NewModel() Model {
-	keymaps := map[string]string{"q": "Exit", "i": "Invite"}
 	usersModel := panels.NewListModel("[2] Users", []string{"Yahel", "Derek", "Luis", "Sofia"})
 	roomsModel := panels.NewListModel("[1] Rooms", []string{"Sala 1", "Sala 2", "Sala 3", "Sala 4"})
 	chatModel := panels.NewChatModel()
-	footerModel := panels.FooterModel{Keymaps: keymaps, Username: "Evan Miranda", Status: protocol.ACTIVE}
+	footerModel := panels.FooterModel{Keymaps: defaultKeymaps, Username: "Evan Miranda", Status: protocol.ACTIVE}
 	m := Model{
 		focus:       Rooms,
 		usersModel:  usersModel,
 		roomsModel:  roomsModel,
 		chatModel:   chatModel,
 		footerModel: footerModel,
+		activeModal: nil,
 	}
 	m.syncFocus()
 	return m
+}
+
+func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
+	// Modo Navegación
+	switch msg.String() {
+	case "q":
+		return tea.Quit
+	case "1":
+		m.focus = Rooms
+		m.syncFocus()
+		m.chatModel.TextInput.Blur()
+	case "2":
+		m.focus = Users
+		m.syncFocus()
+		m.chatModel.TextInput.Blur()
+	case "3":
+		m.focus = Chat
+		m.syncFocus()
+		return m.chatModel.TextInput.Focus()
+	case "c":
+		return m.openModal(panels.NewModalModel("Create Room", "Roomname", 16))
+	case "i":
+		// TODO: Implementar una secuencia de Modals tipo wizard (porque está selección tiene 2 pasos)
+		return m.openModal(panels.NewModalModel("Invitate", "Roomname", 17))
+	default:
+		var cmd tea.Cmd
+		switch m.focus {
+		case Rooms:
+			m.roomsModel, cmd = m.roomsModel.Update(msg)
+		case Users:
+			m.usersModel, cmd = m.usersModel.Update(msg)
+		case Chat:
+			m.chatModel, cmd = m.chatModel.Update(msg)
+		}
+		return cmd
+	}
+
+	return nil
 }
