@@ -69,7 +69,7 @@ func (m ChatModel) View() string {
 
 	messageBarStyle := styles.TextInputStyle.Width(m.width - 4) // -4 Por los bordes de el panel y del input.
 	if m.IsCapturingInput() {
-		messageBarStyle = messageBarStyle.BorderForeground(styles.AccentColor)
+		messageBarStyle = messageBarStyle.BorderForeground(styles.SecondaryColor)
 	}
 
 	return boxStyle.Render(header + "\n" + contentStyle.Render() + "\n" + messageBarStyle.Render(m.TextInput.View()))
