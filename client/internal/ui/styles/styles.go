@@ -14,4 +14,6 @@ var (
 	ChatNameStyle    = lipgloss.NewStyle().Foreground(TextColor).Background(AccentColor).Align(lipgloss.Center)
 	StatusStyle      = lipgloss.NewStyle().Bold(true)
 	KeymapsStyle     = lipgloss.NewStyle().Foreground(MutedColor)
+	MessageStyle     = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, false, true).MarginTop(1)
+	//TODO: Añadir estilo para destacar mensajes propios
 )
