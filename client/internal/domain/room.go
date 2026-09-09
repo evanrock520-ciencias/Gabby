@@ -7,20 +7,20 @@ type ChatMessage struct {
 
 type Room struct {
 	Name     string
-	Users    []string
+	Users    []User
 	Messages []ChatMessage
 }
 
 func NewRoom(roomname string) Room {
 	return Room{
 		Name:     roomname,
-		Users:    []string{},
+		Users:    []User{},
 		Messages: []ChatMessage{},
 	}
 }
 
-func (room *Room) AddUser(username string) {
-	room.Users = append(room.Users, username)
+func (room *Room) AddUser(user User) {
+	room.Users = append(room.Users, user)
 }
 
 func (room *Room) AddMessage(msg ChatMessage) {
