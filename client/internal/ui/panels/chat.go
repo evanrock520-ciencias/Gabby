@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type ChatModel struct {
@@ -51,9 +52,15 @@ func (m *ChatModel) refreshMessages() {
 	}
 	var sb strings.Builder
 	for _, msg := range m.DisplayedRoom.Messages {
-		userRender := styles.HeaderTitleStyle.Render(" " + msg.Username)
+		userRender := styles.HeaderTitleStyle.Render(msg.Username)
 		msgRender := styles.TextStyle.Render(msg.Message)
-		sb.WriteString(styles.MessageStyle.Render(userRender + "\n " + msgRender))
+
+		clientMessageStyle := styles.MessageStyle.Width(m.width - 5)
+		if msg.Username == m.Username {
+			clientMessageStyle = styles.CurrentUserMessageStyle.Width(m.width - 5).Align(lipgloss.Right)
+		}
+
+		sb.WriteString(clientMessageStyle.Render(userRender + "\n" + msgRender))
 		sb.WriteString("\n")
 	}
 
