@@ -1,6 +1,7 @@
 package panels
 
 import (
+	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 	"strings"
 
@@ -9,14 +10,16 @@ import (
 
 type ListModel struct {
 	Panel
-	Title string
-	Items []string
+	Title   string
+	Items   []string
+	OnEnter func(value string) messages.ListResultMsg
 }
 
-func NewListModel(title string, items []string) ListModel {
+func NewListModel(title string, items []string, onEnter func(value string) messages.ListResultMsg) ListModel {
 	return ListModel{
-		Title: title,
-		Items: items,
+		Title:   title,
+		Items:   items,
+		OnEnter: onEnter,
 	}
 }
 
@@ -35,6 +38,13 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 		case "down":
 			if m.cursor < len(m.Items)-1 {
 				m.cursor++
+			}
+		case "enter":
+			if len(m.Items) == 0 || m.cursor < 0 || m.cursor >= len(m.Items) {
+				return m, nil
+			}
+			return m, func() tea.Msg {
+				return m.OnEnter(m.Items[m.cursor])
 			}
 		}
 	}

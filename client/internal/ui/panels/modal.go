@@ -1,6 +1,7 @@
 package panels
 
 import (
+	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 	"strings"
 
@@ -14,9 +15,11 @@ type ModalModel struct {
 	TextInput textinput.Model
 	Prompt    string
 	// Quizás convendria tambien tener una lista para selección
+	onConfirm func(value string) messages.ModalResultMsg
+	optional  bool
 }
 
-func NewModalModel(prompt string, placeholder string, charLimit int) ModalModel {
+func NewModalModel(prompt string, placeholder string, charLimit int, action func(value string) messages.ModalResultMsg, optional bool) ModalModel {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
 	ti.Blur()
@@ -24,6 +27,8 @@ func NewModalModel(prompt string, placeholder string, charLimit int) ModalModel 
 	return ModalModel{
 		Prompt:    prompt,
 		TextInput: ti,
+		onConfirm: action,
+		optional:  optional,
 	}
 }
 
@@ -40,10 +45,18 @@ func (m ModalModel) Update(msg tea.Msg) (ModalModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		// TODO: Definir que hacer con los valores
-		case tea.KeyEsc, tea.KeyEnter:
+		case tea.KeyEsc:
+			if !m.optional {
+				return m, tea.Quit
+			}
 			m.TextInput.Reset()
 			m.TextInput.Blur()
 			return m, nil
+		case tea.KeyEnter:
+			text := m.TextInput.Value()
+			return m, func() tea.Msg {
+				return m.onConfirm(text)
+			}
 		}
 	}
 
