@@ -14,25 +14,51 @@ import (
 type ChatModel struct {
 	Panel
 	TextInput     textinput.Model
-	ChatName      string
 	Viewport      viewport.Model
-	DisplayedRoom domain.Room
+	DisplayedRoom *domain.Room
+	Username      string
 	ready         bool
 }
 
-func NewChatModel() ChatModel {
+func NewChatModel(initialRoom *domain.Room, username string) ChatModel {
 	ti := textinput.New()
 	ti.Placeholder = "Message..."
 	ti.Blur()
 	ti.CharLimit = 156
 	return ChatModel{
 		TextInput:     ti,
-		DisplayedRoom: domain.NewRoom("Global"),
+		DisplayedRoom: initialRoom,
+		Username:      username,
 	}
 }
 
 func (m ChatModel) Init() tea.Cmd {
 	return textinput.Blink
+}
+
+func (m *ChatModel) SetUsername(username string) {
+	m.Username = username
+}
+
+func (m *ChatModel) SetRoom(room *domain.Room) {
+	m.DisplayedRoom = room
+	m.refreshMessages()
+}
+
+func (m *ChatModel) refreshMessages() {
+	if !m.ready || m.DisplayedRoom == nil {
+		return
+	}
+	var sb strings.Builder
+	for _, msg := range m.DisplayedRoom.Messages {
+		userRender := styles.HeaderTitleStyle.Render(" " + msg.Username)
+		msgRender := styles.TextStyle.Render(msg.Message)
+		sb.WriteString(styles.MessageStyle.Render(userRender + "\n " + msgRender))
+		sb.WriteString("\n")
+	}
+
+	m.Viewport.SetContent(sb.String())
+	m.Viewport.GotoBottom()
 }
 
 func (m *ChatModel) SetSize(width int, height int) {
@@ -44,6 +70,7 @@ func (m *ChatModel) SetSize(width int, height int) {
 	if !m.ready {
 		m.Viewport = viewport.New(viewportWidth, viewportHeight)
 		m.ready = true
+		m.refreshMessages()
 	} else {
 		m.Viewport.Width = viewportWidth
 		m.Viewport.Height = viewportHeight
@@ -51,18 +78,9 @@ func (m *ChatModel) SetSize(width int, height int) {
 }
 
 func (m *ChatModel) AddMessage(msg domain.ChatMessage) {
-	m.DisplayedRoom.AddMessage(msg)
-	if m.ready {
-		var sb strings.Builder
-		for _, msg := range m.DisplayedRoom.Messages {
-			userRender := styles.HeaderTitleStyle.Render(" " + msg.Username)
-			msgRender := styles.TextStyle.Render(msg.Message)
-			sb.WriteString(styles.MessageStyle.Render(userRender + "\n " + msgRender))
-			sb.WriteString("\n")
-		}
-
-		m.Viewport.SetContent(sb.String())
-		m.Viewport.GotoBottom()
+	if m.DisplayedRoom != nil {
+		m.DisplayedRoom.AddMessage(msg)
+		m.refreshMessages()
 	}
 }
 
@@ -88,9 +106,8 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 				return m, cmd
 			}
 			text := strings.TrimSpace(m.TextInput.Value())
-			// TODO: Sincronizar el username con el usuario del cliente
-			chatMessage := domain.ChatMessage{Message: text, Username: "Evan"}
 			if text != "" {
+				chatMessage := domain.ChatMessage{Message: text, Username: m.Username}
 				m.AddMessage(chatMessage)
 			}
 			m.TextInput.SetValue("")
@@ -113,7 +130,11 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 
 func (m ChatModel) View() string {
 	boxStyle := styles.BoxStyle.Width(m.width).Height(m.height)
-	header := styles.ChatNameStyle.Width(m.width - 2).Render(m.ChatName)
+	roomName := ""
+	if m.DisplayedRoom != nil {
+		roomName = m.DisplayedRoom.Name
+	}
+	header := styles.ChatNameStyle.Width(m.width - 2).Render(roomName)
 
 	if m.IsFocused() {
 		boxStyle = boxStyle.BorderForeground(styles.PrimaryColor)
