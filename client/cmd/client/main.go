@@ -2,7 +2,6 @@ package main
 
 import (
 	"client/internal/domain"
-	"client/internal/protocol"
 	"client/internal/ui"
 	"fmt"
 
@@ -11,7 +10,7 @@ import (
 
 func main() {
 	//TODO: Obtener los datos del servidor
-	users := []domain.User{{Username: "Evan", Status: protocol.ACTIVE}, {Username: "Derek", Status: protocol.AWAY}}
+	users := []domain.User{{Username: "Evan", Status: domain.ACTIVE}, {Username: "Derek", Status: domain.AWAY}}
 	session := domain.SessionState{
 		Users: users,
 		Rooms: map[string]*domain.Room{

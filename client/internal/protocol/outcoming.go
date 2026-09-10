@@ -1,6 +1,9 @@
 package protocol
 
-import "errors"
+import (
+	"client/internal/domain"
+	"errors"
+)
 
 type TypeC2S string
 
@@ -31,7 +34,7 @@ func IdentifyMessage(username string) (ClientMessage, error) {
 	return ClientMessage{Type: IDENTIFY, Message: Message{Username: username}}, nil
 }
 
-func StatusMessage(status Status) (ClientMessage, error) {
+func StatusMessage(status domain.Status) (ClientMessage, error) {
 	return ClientMessage{Type: STATUS, Message: Message{Status: status}}, nil
 }
 

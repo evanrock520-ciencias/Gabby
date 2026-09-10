@@ -1,7 +1,7 @@
 package panels
 
 import (
-	"client/internal/protocol"
+	"client/internal/domain"
 	"client/internal/ui/styles"
 	"strings"
 
@@ -26,10 +26,10 @@ type FooterModel struct {
 	Keymaps []Keymap
 	// Probablemente convenga utilizar una referencia a un tipo usuario para actualizar la interfaz
 	Username string
-	Status   protocol.Status
+	Status   domain.Status
 }
 
-func NewFooterModel(keymaps []Keymap, username string, status protocol.Status) FooterModel {
+func NewFooterModel(keymaps []Keymap, username string, status domain.Status) FooterModel {
 	return FooterModel{
 		Keymaps:  keymaps,
 		Username: username,
@@ -64,13 +64,13 @@ func (m FooterModel) View() string {
 	return footerStyle.AlignVertical(lipgloss.Center).Render(left + right)
 }
 
-func defineColorByStatus(status protocol.Status) lipgloss.Color {
+func defineColorByStatus(status domain.Status) lipgloss.Color {
 	switch status {
-	case protocol.ACTIVE:
+	case domain.ACTIVE:
 		return styles.PrimaryColor
-	case protocol.BUSY:
+	case domain.BUSY:
 		return styles.TerciaryColor
-	case protocol.AWAY:
+	case domain.AWAY:
 		return styles.SecondaryColor
 	}
 	return styles.PrimaryColor

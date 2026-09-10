@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"client/internal/domain"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -41,12 +42,12 @@ func TestSerializeIdentifyMessage(t *testing.T) {
 }
 
 func TestSerializeStatusMessage(t *testing.T) {
-	msg, _ := StatusMessage(AWAY)
+	msg, _ := StatusMessage(domain.AWAY)
 	data, _ := Serialize(msg)
 	if !contains(data, "type", string(STATUS)) {
 		t.Fatal(typeError("type", data))
 	}
-	if !contains(data, "status", string(AWAY)) {
+	if !contains(data, "status", string(domain.AWAY)) {
 		t.Fatal(typeError("status", data))
 	}
 }
