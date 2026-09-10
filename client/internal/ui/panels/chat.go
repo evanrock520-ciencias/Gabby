@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"client/internal/domain"
+	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -44,6 +45,14 @@ func (m *ChatModel) SetUsername(username string) {
 func (m *ChatModel) SetRoom(room *domain.Room) {
 	m.DisplayedRoom = room
 	m.refreshMessages()
+}
+
+func (m *ChatModel) Blur() {
+	m.TextInput.Blur()
+}
+
+func (m *ChatModel) Focus() tea.Cmd {
+	return m.TextInput.Focus()
 }
 
 func (m *ChatModel) refreshMessages() {
@@ -103,6 +112,19 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if !m.TextInput.Focused() {
+			switch msg.String() {
+			case "e":
+				if m.DisplayedRoom != nil && m.DisplayedRoom.Name != "Global" && !strings.HasPrefix(m.DisplayedRoom.Name, "@") {
+					return m, func() tea.Msg {
+						return messages.LeftRoomMsg{
+							Roomname: m.DisplayedRoom.Name,
+						}
+					}
+				}
+			}
+		}
+
 		switch msg.Type {
 		case tea.KeyEsc:
 			m.TextInput.Blur()

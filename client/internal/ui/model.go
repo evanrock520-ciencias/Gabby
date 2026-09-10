@@ -2,9 +2,9 @@ package ui
 
 import (
 	"client/internal/domain"
-	"client/internal/protocol"
 	"client/internal/ui/messages"
 	"client/internal/ui/panels"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -66,6 +66,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeModal.SetSize(m.width, max(0, m.heigth-3)) // -3 por el footer
 		}
 
+	case messages.GlobalResultMsg:
+		switch result := msg.(type) {
+		case messages.ChangeStatusMsg:
+			m.session.CurrentUser.Status = result.Status
+			m.footerModel.Status = result.Status
+		}
+
+	case messages.ChatResultMsg:
+		switch result := msg.(type) {
+		case messages.LeftRoomMsg:
+			if result.Roomname == "Global" || strings.HasPrefix(result.Roomname, "@") || result.Roomname == "" {
+				return m, nil
+			}
+			m.roomsModel.RemoveItem(result.Roomname)
+			delete(m.session.Rooms, result.Roomname)
+			if m.chatModel.DisplayedRoom != nil && m.chatModel.DisplayedRoom.Name == result.Roomname {
+				if globalRoom, ok := m.session.Rooms["Global"]; ok {
+					m.chatModel.SetRoom(globalRoom)
+				} else {
+					m.chatModel.SetRoom(nil)
+				}
+			}
+		}
+
 	case messages.ListResultMsg:
 		switch result := msg.(type) {
 		case messages.EnterRoomMsg:
@@ -97,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch result := msg.(type) {
 		case messages.CreateRoomMsg:
 			if result.Roomname != "" {
-				m.roomsModel.Items = append(m.roomsModel.Items, result.Roomname)
+				m.roomsModel.AddItem(result.Roomname)
 				if m.session.Rooms == nil {
 					m.session.Rooms = make(map[string]*domain.Room)
 				}
@@ -108,7 +132,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if result.Username != "" {
 				m.footerModel.Username = result.Username
 				m.session.CurrentUser.Username = result.Username
-				m.session.CurrentUser.Status = protocol.ACTIVE
+				m.session.CurrentUser.Status = domain.ACTIVE
 				m.chatModel.SetUsername(result.Username)
 			} else {
 				return m, tea.Quit
@@ -165,7 +189,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) openModal(modal panels.ModalModel) tea.Cmd {
 	modal.SetSize(m.width, max(0, m.heigth-3))
-	m.chatModel.TextInput.Blur()
+	m.chatModel.Blur()
 	m.footerModel.Keymaps = modalKeymaps
 	cmd := modal.TextInput.Focus()
 	m.activeModal = &modal
@@ -240,7 +264,7 @@ func NewModel(session domain.SessionState) Model {
 		session.Rooms["Global"] = globalRoom
 	}
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
-	footerModel := panels.FooterModel{Keymaps: defaultKeymaps, Username: "", Status: protocol.ACTIVE}
+	footerModel := panels.FooterModel{Keymaps: defaultKeymaps, Username: "", Status: domain.ACTIVE}
 	loginModel := panels.NewModalModel("Login", "Username", 8, func(value string) messages.ModalResultMsg {
 		return messages.SetUserMsg{Username: value}
 	}, false)
@@ -265,15 +289,15 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	case "1":
 		m.focus = Rooms
 		m.syncFocus()
-		m.chatModel.TextInput.Blur()
+		m.chatModel.Blur()
 	case "2":
 		m.focus = Users
 		m.syncFocus()
-		m.chatModel.TextInput.Blur()
+		m.chatModel.Blur()
 	case "3":
 		m.focus = Chat
 		m.syncFocus()
-		return m.chatModel.TextInput.Focus()
+		return m.chatModel.Focus()
 	case "c":
 		return m.openModal(panels.NewModalModel("Create Room", "Roomname", 16, func(value string) messages.ModalResultMsg {
 			return messages.CreateRoomMsg{Roomname: value}
@@ -283,6 +307,12 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		return m.openModal(panels.NewModalModel("Invitate", "Roomname", 17, func(value string) messages.ModalResultMsg {
 			return messages.InvitateMsg{Roomname: value}
 		}, true))
+	case "s":
+		return func() tea.Msg {
+			return messages.ChangeStatusMsg{
+				Status: m.session.CurrentUser.Status.Next(),
+			}
+		}
 	default:
 		var cmd tea.Cmd
 		switch m.focus {

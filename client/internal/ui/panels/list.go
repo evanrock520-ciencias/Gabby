@@ -3,6 +3,7 @@ package panels
 import (
 	"client/internal/ui/messages"
 	"client/internal/ui/styles"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -84,4 +85,21 @@ func (m ListModel) SelectedItem() (string, bool) {
 		return m.Items[m.cursor], true
 	}
 	return "", false
+}
+
+func (m *ListModel) AddItem(item string) {
+	m.Items = append(m.Items, item)
+}
+
+func (m *ListModel) RemoveItem(item string) {
+	i := slices.Index(m.Items, item)
+	if i == -1 {
+		return
+	}
+	m.Items = slices.Delete(m.Items, i, i+1)
+	if len(m.Items) == 0 {
+		m.cursor = 0
+	} else if m.cursor >= len(m.Items) {
+		m.cursor = len(m.Items) - 1
+	}
 }
