@@ -64,6 +64,10 @@ func (m FooterModel) View() string {
 	return footerStyle.AlignVertical(lipgloss.Center).Render(left + right)
 }
 
+func (m *FooterModel) SetKeys(keys []Keymap) {
+	m.Keymaps = keys
+}
+
 func defineColorByStatus(status domain.Status) lipgloss.Color {
 	switch status {
 	case domain.ACTIVE:
