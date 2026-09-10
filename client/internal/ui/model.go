@@ -16,19 +16,16 @@ const (
 	Rooms Focus = iota
 	Users
 	Chat
+	totalFocus
 )
 
-var (
-	defaultKeymaps = []panels.Keymap{
-		panels.NewKeymap("q", "Exit"),
-		panels.NewKeymap("c", "Create Room"),
-		panels.NewKeymap("i", "Invitate"),
-	}
-	modalKeymaps = []panels.Keymap{
-		panels.NewKeymap("enter", "Confirm"),
-		panels.NewKeymap("esc", "Cancel"),
-	}
-)
+func (f Focus) Next() Focus {
+	return (f + 1) % totalFocus
+}
+
+func (f Focus) Prev() Focus {
+	return (f - 1 + totalFocus) % totalFocus
+}
 
 type Model struct {
 	width       int
@@ -69,7 +66,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messages.GlobalResultMsg:
 		switch result := msg.(type) {
 		case messages.ChangeStatusMsg:
-			m.session.CurrentUser.Status = result.Status
+			m.session.SetStatus(result.Status)
 			m.footerModel.Status = result.Status
 		}
 
@@ -80,9 +77,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.roomsModel.RemoveItem(result.Roomname)
-			delete(m.session.Rooms, result.Roomname)
+			m.session.RemoveRoom(result.Roomname)
 			if m.chatModel.DisplayedRoom != nil && m.chatModel.DisplayedRoom.Name == result.Roomname {
-				if globalRoom, ok := m.session.Rooms["Global"]; ok {
+				if globalRoom, ok := m.session.GetRoom("Global"); ok {
 					m.chatModel.SetRoom(globalRoom)
 				} else {
 					m.chatModel.SetRoom(nil)
@@ -94,45 +91,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch result := msg.(type) {
 		case messages.EnterRoomMsg:
 			if result.Roomname != "" {
-				if room, ok := m.session.Rooms[result.Roomname]; ok {
+				if room, ok := m.session.GetRoom(result.Roomname); ok {
 					m.chatModel.SetRoom(room)
 				}
 			}
 		case messages.EnterDMMsg:
 			if result.Username != "" {
-				dmRoom, ok := m.session.DMs[result.Username]
-				if !ok {
-					newDMRoom := domain.NewRoom("@" + result.Username)
-					dmRoom = &newDMRoom
-					if m.session.DMs == nil {
-						m.session.DMs = make(map[string]*domain.Room)
-					}
-					m.session.DMs[result.Username] = dmRoom
-				}
+				dmRoom := m.session.GetOrCreateDM(result.Username)
 				m.chatModel.SetRoom(dmRoom)
 			}
 		}
 
 	case messages.ModalResultMsg:
 		m.activeModal = nil
-		m.footerModel.Keymaps = defaultKeymaps
 		m.syncFocus()
 
 		switch result := msg.(type) {
 		case messages.CreateRoomMsg:
 			if result.Roomname != "" {
 				m.roomsModel.AddItem(result.Roomname)
-				if m.session.Rooms == nil {
-					m.session.Rooms = make(map[string]*domain.Room)
-				}
-				newRoom := domain.NewRoom(result.Roomname)
-				m.session.Rooms[result.Roomname] = &newRoom
+				m.session.AddRoom(result.Roomname)
 			}
 		case messages.SetUserMsg:
 			if result.Username != "" {
 				m.footerModel.Username = result.Username
-				m.session.CurrentUser.Username = result.Username
-				m.session.CurrentUser.Status = domain.ACTIVE
+				m.session.SetCurrentUser(result.Username, domain.ACTIVE)
 				m.chatModel.SetUsername(result.Username)
 			} else {
 				return m, tea.Quit
@@ -150,7 +133,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeModal = &updatedModal
 			if !m.activeModal.IsCapturingInput() {
 				m.activeModal = nil
-				m.footerModel.Keymaps = defaultKeymaps
 				m.syncFocus()
 			}
 			return m, cmd
@@ -167,6 +149,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case Chat:
 				m.chatModel, cmd = m.chatModel.Update(msg)
 			}
+			m.footerModel.SetKeys(m.CurrentKeymaps())
 			return m, cmd
 		}
 
@@ -190,16 +173,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) openModal(modal panels.ModalModel) tea.Cmd {
 	modal.SetSize(m.width, max(0, m.heigth-3))
 	m.chatModel.Blur()
-	m.footerModel.Keymaps = modalKeymaps
 	cmd := modal.TextInput.Focus()
 	m.activeModal = &modal
+	m.footerModel.SetKeys(m.CurrentKeymaps())
 	return cmd
+}
+
+func (m *Model) setFocus(newFocus Focus) tea.Cmd {
+	m.focus = newFocus
+	m.syncFocus()
+
+	if m.focus == Chat {
+		return m.chatModel.Focus()
+	}
+	m.chatModel.Blur()
+	return nil
 }
 
 func (m *Model) syncFocus() {
 	m.usersModel.SetFocus(m.focus == Users)
 	m.roomsModel.SetFocus(m.focus == Rooms)
 	m.chatModel.SetFocus(m.focus == Chat)
+	m.footerModel.SetKeys(m.CurrentKeymaps())
 }
 
 func (m Model) activePanel() panels.InputCapturer {
@@ -234,37 +229,16 @@ func (m Model) View() string {
 
 // Función para poblar los datos de la interfaz
 func NewModel(session domain.SessionState) Model {
-	if session.Rooms == nil {
-		session.Rooms = make(map[string]*domain.Room)
-	}
-	if session.DMs == nil {
-		session.DMs = make(map[string]*domain.Room)
-	}
+	globalRoom := session.AddRoom("Global")
 
-	var users []string
-	for _, user := range session.Users {
-		users = append(users, user.Username)
-	}
-
-	var rooms []string
-	for _, room := range session.Rooms {
-		rooms = append(rooms, room.Name)
-	}
-
-	usersModel := panels.NewListModel("[2] Users", users, func(value string) messages.ListResultMsg {
+	usersModel := panels.NewListModel("[2] Users", session.Usernames(), func(value string) messages.ListResultMsg {
 		return messages.EnterDMMsg{Username: value}
 	})
-	roomsModel := panels.NewListModel("[1] Rooms", rooms, func(value string) messages.ListResultMsg {
+	roomsModel := panels.NewListModel("[1] Rooms", session.RoomNames(), func(value string) messages.ListResultMsg {
 		return messages.EnterRoomMsg{Roomname: value}
 	})
-	globalRoom, ok := session.Rooms["Global"]
-	if !ok {
-		newGlobal := domain.NewRoom("Global")
-		globalRoom = &newGlobal
-		session.Rooms["Global"] = globalRoom
-	}
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
-	footerModel := panels.FooterModel{Keymaps: defaultKeymaps, Username: "", Status: domain.ACTIVE}
+	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
 	loginModel := panels.NewModalModel("Login", "Username", 8, func(value string) messages.ModalResultMsg {
 		return messages.SetUserMsg{Username: value}
 	}, false)
@@ -287,17 +261,11 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	case "q":
 		return tea.Quit
 	case "1":
-		m.focus = Rooms
-		m.syncFocus()
-		m.chatModel.Blur()
+		return m.setFocus(Rooms)
 	case "2":
-		m.focus = Users
-		m.syncFocus()
-		m.chatModel.Blur()
+		return m.setFocus(Users)
 	case "3":
-		m.focus = Chat
-		m.syncFocus()
-		return m.chatModel.Focus()
+		return m.setFocus(Chat)
 	case "c":
 		return m.openModal(panels.NewModalModel("Create Room", "Roomname", 16, func(value string) messages.ModalResultMsg {
 			return messages.CreateRoomMsg{Roomname: value}
@@ -313,6 +281,10 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 				Status: m.session.CurrentUser.Status.Next(),
 			}
 		}
+	case "tab":
+		m.setFocus(m.focus.Next())
+	case "shift+tab":
+		m.setFocus(m.focus.Prev())
 	default:
 		var cmd tea.Cmd
 		switch m.focus {
