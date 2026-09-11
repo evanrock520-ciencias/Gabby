@@ -59,23 +59,11 @@ func (m FooterModel) View() string {
 	leftWidth := lipgloss.Width(left)
 
 	statusWidth := max(0, availableWidth-leftWidth)
-	right := styles.StatusStyle.Width(statusWidth).Align(lipgloss.Right).Foreground(defineColorByStatus(m.Status)).Render("◉ " + m.Username)
+	right := styles.StatusStyle.Width(statusWidth).Align(lipgloss.Right).Foreground(styles.ColorByStatus(m.Status)).Render("◉ " + m.Username)
 
 	return footerStyle.AlignVertical(lipgloss.Center).Render(left + right)
 }
 
 func (m *FooterModel) SetKeys(keys []Keymap) {
 	m.Keymaps = keys
-}
-
-func defineColorByStatus(status domain.Status) lipgloss.Color {
-	switch status {
-	case domain.ACTIVE:
-		return styles.PrimaryColor
-	case domain.BUSY:
-		return styles.TerciaryColor
-	case domain.AWAY:
-		return styles.SecondaryColor
-	}
-	return styles.PrimaryColor
 }
