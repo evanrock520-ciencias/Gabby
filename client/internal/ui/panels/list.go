@@ -9,14 +9,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type Item interface {
+	Value() string
+	Render(selected bool, width int) string
+}
+
 type ListModel struct {
 	Panel
 	Title   string
-	Items   []string
+	Items   []Item
 	OnEnter func(value string) messages.ListResultMsg
 }
 
-func NewListModel(title string, items []string, onEnter func(value string) messages.ListResultMsg) ListModel {
+func NewListModel(title string, items []Item, onEnter func(value string) messages.ListResultMsg) ListModel {
 	return ListModel{
 		Title:   title,
 		Items:   items,
@@ -45,7 +50,7 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 				return m, nil
 			}
 			return m, func() tea.Msg {
-				return m.OnEnter(m.Items[m.cursor])
+				return m.OnEnter(m.Items[m.cursor].Value())
 			}
 		}
 	}
@@ -65,11 +70,8 @@ func (m ListModel) View() string {
 
 	var sb strings.Builder
 	for i, item := range m.Items {
-		itemStyle := styles.TextStyle
-		if m.IsFocused() && i == m.cursor {
-			itemStyle = styles.SelectedStyle.Width(m.width - 2)
-		}
-		sb.WriteString(itemStyle.Render(item))
+		selected := i == m.cursor && m.focus
+		sb.WriteString(item.Render(selected, m.width-2))
 		sb.WriteString("\n")
 	}
 
@@ -82,17 +84,19 @@ func (m ListModel) View() string {
 
 func (m ListModel) SelectedItem() (string, bool) {
 	if m.cursor >= 0 && m.cursor < len(m.Items) {
-		return m.Items[m.cursor], true
+		return m.Items[m.cursor].Value(), true
 	}
 	return "", false
 }
 
-func (m *ListModel) AddItem(item string) {
+func (m *ListModel) AddItem(item Item) {
 	m.Items = append(m.Items, item)
 }
 
-func (m *ListModel) RemoveItem(item string) {
-	i := slices.Index(m.Items, item)
+func (m *ListModel) RemoveItem(value string) {
+	i := slices.IndexFunc(m.Items, func(item Item) bool {
+		return item.Value() == value
+	})
 	if i == -1 {
 		return
 	}
