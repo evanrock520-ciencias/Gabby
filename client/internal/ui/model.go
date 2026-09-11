@@ -100,6 +100,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				dmRoom := m.session.GetOrCreateDM(result.Username)
 				m.chatModel.SetRoom(dmRoom)
 				m.setFocus(Chat)
+				return m, m.chatModel.Focus()
 			}
 		}
 
@@ -180,9 +181,6 @@ func (m *Model) setFocus(newFocus Focus) tea.Cmd {
 	m.focus = newFocus
 	m.syncFocus()
 
-	if m.focus == Chat {
-		return m.chatModel.Focus()
-	}
 	m.chatModel.Blur()
 	return nil
 }
