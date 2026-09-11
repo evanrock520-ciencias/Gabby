@@ -66,8 +66,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messages.GlobalResultMsg:
 		switch result := msg.(type) {
 		case messages.ChangeStatusMsg:
-			m.session.SetStatus(result.Status)
-			m.footerModel.Status = result.Status
+			m.SetStatus(result.Status)
 		}
 
 	case messages.ChatResultMsg:
@@ -93,30 +92,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if result.Roomname != "" {
 				if room, ok := m.session.GetRoom(result.Roomname); ok {
 					m.chatModel.SetRoom(room)
+					m.setFocus(Chat)
 				}
 			}
 		case messages.EnterDMMsg:
 			if result.Username != "" {
 				dmRoom := m.session.GetOrCreateDM(result.Username)
 				m.chatModel.SetRoom(dmRoom)
+				m.setFocus(Chat)
 			}
 		}
 
 	case messages.ModalResultMsg:
-		m.activeModal = nil
-		m.syncFocus()
+		m.closeModal()
 
 		switch result := msg.(type) {
 		case messages.CreateRoomMsg:
 			if result.Roomname != "" {
-				m.roomsModel.AddItem(result.Roomname)
-				m.session.AddRoom(result.Roomname)
+				room := m.session.AddRoom(result.Roomname)
+				m.roomsModel.AddItem(NewRoomItem(room))
 			}
 		case messages.SetUserMsg:
 			if result.Username != "" {
-				m.footerModel.Username = result.Username
-				m.session.SetCurrentUser(result.Username, domain.ACTIVE)
-				m.chatModel.SetUsername(result.Username)
+				m.SetUsername(result.Username)
 			} else {
 				return m, tea.Quit
 			}
@@ -132,8 +130,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			updatedModal, cmd := m.activeModal.Update(msg)
 			m.activeModal = &updatedModal
 			if !m.activeModal.IsCapturingInput() {
-				m.activeModal = nil
-				m.syncFocus()
+				m.closeModal()
 			}
 			return m, cmd
 		}
@@ -231,10 +228,10 @@ func (m Model) View() string {
 func NewModel(session domain.SessionState) Model {
 	globalRoom := session.AddRoom("Global")
 
-	usersModel := panels.NewListModel("[2] Users", session.Usernames(), func(value string) messages.ListResultMsg {
+	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) messages.ListResultMsg {
 		return messages.EnterDMMsg{Username: value}
 	})
-	roomsModel := panels.NewListModel("[1] Rooms", session.RoomNames(), func(value string) messages.ListResultMsg {
+	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) messages.ListResultMsg {
 		return messages.EnterRoomMsg{Roomname: value}
 	})
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
@@ -299,4 +296,36 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	}
 
 	return nil
+}
+
+func (m *Model) closeModal() {
+	m.activeModal = nil
+	m.syncFocus()
+}
+
+func (m *Model) SetStatus(status domain.Status) {
+	m.session.SetStatus(status)
+	m.footerModel.Status = status
+}
+
+func (m *Model) SetUsername(username string) {
+	m.footerModel.Username = username
+	m.session.SetCurrentUser(username, domain.ACTIVE)
+	m.chatModel.SetUsername(username)
+}
+
+func userItems(users []domain.User) []panels.Item {
+	items := make([]panels.Item, len(users))
+	for i, user := range users {
+		items[i] = NewUserItem(user)
+	}
+	return items
+}
+
+func roomItems(rooms map[string]*domain.Room) []panels.Item {
+	items := make([]panels.Item, 0, len(rooms))
+	for _, room := range rooms {
+		items = append(items, NewRoomItem(room))
+	}
+	return items
 }
