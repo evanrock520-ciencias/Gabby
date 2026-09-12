@@ -35,12 +35,12 @@ type Model struct {
 	usersModel  panels.ListModel
 	chatModel   panels.ChatModel
 	footerModel panels.FooterModel
-	activeModal *panels.ModalModel
+	activeModal panels.Modal
 	session     domain.SessionState
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.chatModel.Init(), m.activeModal.TextInput.Focus())
+	return tea.Batch(m.chatModel.Init(), m.activeModal.Focus())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -125,6 +125,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return m, tea.Quit
 			}
+		case messages.LeftChat:
+			return m, tea.Quit
+
+		case messages.InvitateMsg:
+			// TODO: Implementar envio de mensajes
+			m.closeModal()
+			return m, nil
 		}
 
 	case tea.KeyMsg:
@@ -135,7 +142,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Si hay un modal activo, consume todo el teclado
 		if m.activeModal != nil {
 			updatedModal, cmd := m.activeModal.Update(msg)
-			m.activeModal = &updatedModal
+			m.activeModal = updatedModal
 			if !m.activeModal.IsCapturingInput() {
 				m.closeModal()
 			}
@@ -165,7 +172,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		if m.activeModal != nil {
 			updatedModal, cmd := m.activeModal.Update(msg)
-			m.activeModal = &updatedModal
+			m.activeModal = updatedModal
 			return m, cmd
 		}
 		m.chatModel, cmd = m.chatModel.Update(msg)
@@ -174,11 +181,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) openModal(modal panels.ModalModel) tea.Cmd {
+func (m *Model) openModal(modal panels.Modal) tea.Cmd {
 	modal.SetSize(m.width, max(0, m.heigth-3))
 	m.chatModel.Blur()
-	cmd := modal.TextInput.Focus()
-	m.activeModal = &modal
+	cmd := modal.Focus()
+	m.activeModal = modal
 	m.footerModel.SetKeys(m.CurrentKeymaps())
 	return cmd
 }
@@ -240,7 +247,7 @@ func NewModel(session domain.SessionState) Model {
 	})
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
 	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
-	loginModel := panels.NewModalModel("Login", "Username", 8, func(value string) messages.ModalResultMsg {
+	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) messages.ModalResultMsg {
 		return messages.SetUserMsg{Username: value}
 	}, false)
 	m := Model{
@@ -249,7 +256,7 @@ func NewModel(session domain.SessionState) Model {
 		roomsModel:  roomsModel,
 		chatModel:   chatModel,
 		footerModel: footerModel,
-		activeModal: &loginModel,
+		activeModal: loginModel,
 		session:     session,
 	}
 	m.syncFocus()
@@ -260,7 +267,11 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	// Modo Navegación
 	switch msg.String() {
 	case "q":
-		return tea.Quit
+		m.openModal(panels.NewConfirmModal("Leave the Chat", []string{"Yes", "Not"}, func() messages.ModalResultMsg {
+			return messages.LeftChat{}
+		}, func() messages.ModalResultMsg {
+			return nil
+		}))
 	case "1":
 		return m.setFocus(Rooms)
 	case "2":
@@ -268,14 +279,29 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	case "3":
 		return m.setFocus(Chat)
 	case "c":
-		return m.openModal(panels.NewModalModel("Create Room", "Roomname", 16, func(value string) messages.ModalResultMsg {
+		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) messages.ModalResultMsg {
 			return messages.CreateRoomMsg{Roomname: value}
 		}, true))
 	case "i":
-		// TODO: Implementar una secuencia de Modals tipo wizard (porque está selección tiene 2 pasos)
-		return m.openModal(panels.NewModalModel("Invitate", "Roomname", 17, func(value string) messages.ModalResultMsg {
-			return messages.InvitateMsg{Roomname: value}
-		}, true))
+		return m.openModal(panels.NewWizardModal(
+			func(store *panels.WizardStore) []panels.Modal {
+				return []panels.Modal{
+					panels.NewListModal("Select a Room", roomItems(m.session.Rooms), false, func(values []string) messages.ModalResultMsg {
+						store.Set("room", values)
+						return nil
+					}),
+					panels.NewListModal("Select Users", userItems(m.session.Users), true, func(values []string) messages.ModalResultMsg {
+						store.Set("users", values)
+						return nil
+					}),
+				}
+			},
+			func(store panels.WizardStore) messages.ModalResultMsg {
+				rooms, _ := store.Get("room")
+				users, _ := store.Get("users")
+				return messages.InvitateMsg{Roomname: rooms[0], Users: users}
+			},
+		))
 	case "s":
 		return func() tea.Msg {
 			return messages.ChangeStatusMsg{
