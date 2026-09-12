@@ -63,6 +63,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeModal.SetSize(m.width, max(0, m.heigth-3)) // -3 por el footer
 		}
 
+		// Delegar el mensaje para que se actualizen los paneles de listas
+		// Y calculen correctamente el offset tras un resize
+		m.roomsModel, _ = m.roomsModel.Update(msg)
+		m.usersModel, _ = m.usersModel.Update(msg)
+
 	case messages.GlobalResultMsg:
 		switch result := msg.(type) {
 		case messages.ChangeStatusMsg:
@@ -93,6 +98,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if room, ok := m.session.GetRoom(result.Roomname); ok {
 					m.chatModel.SetRoom(room)
 					m.setFocus(Chat)
+					return m, m.chatModel.Focus()
 				}
 			}
 		case messages.EnterDMMsg:
