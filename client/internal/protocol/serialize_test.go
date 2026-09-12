@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"client/internal/domain"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -41,12 +42,12 @@ func TestSerializeIdentifyMessage(t *testing.T) {
 }
 
 func TestSerializeStatusMessage(t *testing.T) {
-	msg, _ := StatusMessage(AWAY)
+	msg, _ := StatusMessage(domain.AWAY)
 	data, _ := Serialize(msg)
 	if !contains(data, "type", string(STATUS)) {
 		t.Fatal(typeError("type", data))
 	}
-	if !contains(data, "status", string(AWAY)) {
+	if !contains(data, "status", string(domain.AWAY)) {
 		t.Fatal(typeError("status", data))
 	}
 }
@@ -253,8 +254,8 @@ func TestDeserializeJoinedRoomMessage(t *testing.T) {
 	if msg.Username != "Evan" {
 		t.Fatal(mismatchField("username", msg.Username, "Evan"))
 	}
-	if msg.Room != "Sala 1" {
-		t.Fatal(mismatchField("room", msg.Room, "Sala 1"))
+	if msg.Roomname != "Sala 1" {
+		t.Fatal(mismatchField("room", msg.Roomname, "Sala 1"))
 	}
 }
 
@@ -267,8 +268,8 @@ func TestDeserializeRoomTextFromMessage(t *testing.T) {
 	if msg.Username != "Evan" {
 		t.Fatal(mismatchField("username", msg.Username, "Evan"))
 	}
-	if msg.Room != "Sala 1" {
-		t.Fatal(mismatchField("room", msg.Room, "Sala 1"))
+	if msg.Roomname != "Sala 1" {
+		t.Fatal(mismatchField("room", msg.Roomname, "Sala 1"))
 	}
 	if msg.Text != "Hola amigos" {
 		t.Fatal(mismatchField("text", msg.Text, "Hola amigos"))
@@ -285,8 +286,8 @@ func TestDeserializeRoomUserListsMessage(t *testing.T) {
 	if !reflect.DeepEqual(msg.Usernames, expectedUsernames) {
 		t.Fatal(mismatchField("usernames", fmt.Sprintf("%v", msg.Usernames), fmt.Sprintf("%v", expectedUsernames)))
 	}
-	if msg.Room != "Sala 1" {
-		t.Fatal(mismatchField("room", msg.Room, "Sala 1"))
+	if msg.Roomname != "Sala 1" {
+		t.Fatal(mismatchField("room", msg.Roomname, "Sala 1"))
 	}
 }
 
@@ -299,8 +300,8 @@ func TestDeserializeLeftRoomMessage(t *testing.T) {
 	if msg.Username != "Evan" {
 		t.Fatal(mismatchField("username", msg.Username, "Evan"))
 	}
-	if msg.Room != "Sala 1" {
-		t.Fatal(mismatchField("room", msg.Room, "Sala 1"))
+	if msg.Roomname != "Sala 1" {
+		t.Fatal(mismatchField("room", msg.Roomname, "Sala 1"))
 	}
 }
 

@@ -18,10 +18,6 @@ const (
 )
 
 type ServerMessage struct {
-	Type      TypeS2C  `json:"type,omitempty"`
-	Username  string   `json:"username,omitempty"`
-	Room      string   `json:"roomname,omitempty"`
-	Status    Status   `json:"status,omitempty"`
-	Text      string   `json:"text,omitempty"`
-	Usernames []string `json:"usernames,omitempty"`
+	Type TypeS2C `json:"type,omitempty"`
+	Message
 }

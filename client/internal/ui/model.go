@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"client/internal/domain"
+	"client/internal/ui/messages"
 	"client/internal/ui/panels"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,19 +16,31 @@ const (
 	Rooms Focus = iota
 	Users
 	Chat
+	totalFocus
 )
 
+func (f Focus) Next() Focus {
+	return (f + 1) % totalFocus
+}
+
+func (f Focus) Prev() Focus {
+	return (f - 1 + totalFocus) % totalFocus
+}
+
 type Model struct {
-	width      int
-	heigth     int
-	focus      Focus
-	roomsModel panels.RoomsModel
-	usersModel panels.UsersModel
-	chatModel  panels.ChatModel
+	width       int
+	heigth      int
+	focus       Focus
+	roomsModel  panels.ListModel
+	usersModel  panels.ListModel
+	chatModel   panels.ChatModel
+	footerModel panels.FooterModel
+	activeModal panels.Modal
+	session     domain.SessionState
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(m.chatModel.Init(), m.activeModal.Focus())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -37,40 +52,310 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.heigth = msg.Height
 
 		// Los paneles tienen bordes que ocupan dos carácteres más de altura y de ancho.
-		m.roomsModel.Width = m.width/4 - 2
-		m.roomsModel.Height = (m.heigth)/2 - 2
+		m.roomsModel.SetSize(m.width/4-2, (m.heigth/2)-3)
+		(m.usersModel.SetSize(m.width/4-2, m.heigth-(m.heigth/2)-3-1))
 
-		m.usersModel.Width = m.width/4 - 2
-		m.usersModel.Height = (m.heigth)/2 - 2
+		m.chatModel.SetSize(m.width-(m.width/4)-2, m.heigth-5)
 
-		m.chatModel.Width = m.width - (m.width / 4) - 2
-		m.chatModel.Height = m.heigth - 2
+		m.footerModel.SetSize(m.width, 3)
+
+		if m.activeModal != nil {
+			m.activeModal.SetSize(m.width, max(0, m.heigth-3)) // -3 por el footer
+		}
+
+		// Delegar el mensaje para que se actualizen los paneles de listas
+		// Y calculen correctamente el offset tras un resize
+		m.roomsModel, _ = m.roomsModel.Update(msg)
+		m.usersModel, _ = m.usersModel.Update(msg)
+
+	case messages.GlobalResultMsg:
+		switch result := msg.(type) {
+		case messages.ChangeStatusMsg:
+			m.SetStatus(result.Status)
+		}
+
+	case messages.ChatResultMsg:
+		switch result := msg.(type) {
+		case messages.LeftRoomMsg:
+			if result.Roomname == "Global" || strings.HasPrefix(result.Roomname, "@") || result.Roomname == "" {
+				return m, nil
+			}
+			m.roomsModel.RemoveItem(result.Roomname)
+			m.session.RemoveRoom(result.Roomname)
+			if m.chatModel.DisplayedRoom != nil && m.chatModel.DisplayedRoom.Name == result.Roomname {
+				if globalRoom, ok := m.session.GetRoom("Global"); ok {
+					m.chatModel.SetRoom(globalRoom)
+				} else {
+					m.chatModel.SetRoom(nil)
+				}
+			}
+		}
+
+	case messages.ListResultMsg:
+		switch result := msg.(type) {
+		case messages.EnterRoomMsg:
+			if result.Roomname != "" {
+				if room, ok := m.session.GetRoom(result.Roomname); ok {
+					m.chatModel.SetRoom(room)
+					m.setFocus(Chat)
+					return m, m.chatModel.Focus()
+				}
+			}
+		case messages.EnterDMMsg:
+			if result.Username != "" {
+				dmRoom := m.session.GetOrCreateDM(result.Username)
+				m.chatModel.SetRoom(dmRoom)
+				m.setFocus(Chat)
+				return m, m.chatModel.Focus()
+			}
+		}
+
+	case messages.ModalResultMsg:
+		m.closeModal()
+
+		switch result := msg.(type) {
+		case messages.CreateRoomMsg:
+			if result.Roomname != "" {
+				room := m.session.AddRoom(result.Roomname)
+				m.roomsModel.AddItem(NewRoomItem(room))
+			}
+		case messages.SetUserMsg:
+			if result.Username != "" {
+				m.SetUsername(result.Username)
+			} else {
+				return m, tea.Quit
+			}
+		case messages.LeftChat:
+			return m, tea.Quit
+
+		case messages.InvitateMsg:
+			// TODO: Implementar envio de mensajes
+			m.closeModal()
+			return m, nil
+		}
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q":
+		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
-		case "1":
-			m.focus = Rooms
-		case "2":
-			m.focus = Users
-		case "3":
-			m.focus = Chat
 		}
+
+		// Si hay un modal activo, consume todo el teclado
+		if m.activeModal != nil {
+			updatedModal, cmd := m.activeModal.Update(msg)
+			m.activeModal = updatedModal
+			if !m.activeModal.IsCapturingInput() {
+				m.closeModal()
+			}
+			return m, cmd
+		}
+
+		// Si el panel activo está en modo captura de texto, se delega todo el teclado
+		if active := m.activePanel(); active != nil && active.IsCapturingInput() {
+			var cmd tea.Cmd
+			switch m.focus {
+			case Rooms:
+				m.roomsModel, cmd = m.roomsModel.Update(msg)
+			case Users:
+				m.usersModel, cmd = m.usersModel.Update(msg)
+			case Chat:
+				m.chatModel, cmd = m.chatModel.Update(msg)
+			}
+			m.footerModel.SetKeys(m.CurrentKeymaps())
+			return m, cmd
+		}
+
+		// Modo Navegación
+		cmd := m.handleNavegation(msg)
+		return m, cmd
+
+	default:
+		var cmd tea.Cmd
+		if m.activeModal != nil {
+			updatedModal, cmd := m.activeModal.Update(msg)
+			m.activeModal = updatedModal
+			return m, cmd
+		}
+		m.chatModel, cmd = m.chatModel.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
 
-func (m Model) View() string {
-	// Decide el focus de la interfaz
-	m.usersModel.Focused = m.focus == Users
-	m.roomsModel.Focused = m.focus == Rooms
-	m.chatModel.Focused = m.focus == Chat
+func (m *Model) openModal(modal panels.Modal) tea.Cmd {
+	modal.SetSize(m.width, max(0, m.heigth-3))
+	m.chatModel.Blur()
+	cmd := modal.Focus()
+	m.activeModal = modal
+	m.footerModel.SetKeys(m.CurrentKeymaps())
+	return cmd
+}
 
-	roomsView := m.roomsModel.View()
-	usersView := m.usersModel.View()
-	chatView := m.chatModel.View()
-	sidebar := lipgloss.JoinVertical(lipgloss.Top, roomsView, usersView)
-	appView := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
-	return appView
+func (m *Model) setFocus(newFocus Focus) tea.Cmd {
+	m.focus = newFocus
+	m.syncFocus()
+
+	m.chatModel.Blur()
+	return nil
+}
+
+func (m *Model) syncFocus() {
+	m.usersModel.SetFocus(m.focus == Users)
+	m.roomsModel.SetFocus(m.focus == Rooms)
+	m.chatModel.SetFocus(m.focus == Chat)
+	m.footerModel.SetKeys(m.CurrentKeymaps())
+}
+
+func (m Model) activePanel() panels.InputCapturer {
+	switch m.focus {
+	case Rooms:
+		return m.roomsModel
+	case Users:
+		return m.usersModel
+	case Chat:
+		return m.chatModel
+	default:
+		return nil
+	}
+}
+
+func (m Model) View() string {
+	var mainView string
+
+	if m.activeModal != nil {
+		mainView = m.activeModal.View()
+	} else {
+		roomsView := m.roomsModel.View()
+		usersView := m.usersModel.View()
+		chatView := m.chatModel.View()
+		sidebar := lipgloss.JoinVertical(lipgloss.Top, roomsView, usersView)
+		mainView = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
+	}
+
+	footerView := m.footerModel.View()
+	return lipgloss.JoinVertical(lipgloss.Top, mainView, footerView)
+}
+
+// Función para poblar los datos de la interfaz
+func NewModel(session domain.SessionState) Model {
+	globalRoom := session.AddRoom("Global")
+
+	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) messages.ListResultMsg {
+		return messages.EnterDMMsg{Username: value}
+	})
+	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) messages.ListResultMsg {
+		return messages.EnterRoomMsg{Roomname: value}
+	})
+	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
+	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
+	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) messages.ModalResultMsg {
+		return messages.SetUserMsg{Username: value}
+	}, false)
+	m := Model{
+		focus:       Rooms,
+		usersModel:  usersModel,
+		roomsModel:  roomsModel,
+		chatModel:   chatModel,
+		footerModel: footerModel,
+		activeModal: loginModel,
+		session:     session,
+	}
+	m.syncFocus()
+	return m
+}
+
+func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
+	// Modo Navegación
+	switch msg.String() {
+	case "q":
+		m.openModal(panels.NewConfirmModal("Leave the Chat", []string{"Yes", "Not"}, func() messages.ModalResultMsg {
+			return messages.LeftChat{}
+		}, func() messages.ModalResultMsg {
+			return nil
+		}))
+	case "1":
+		return m.setFocus(Rooms)
+	case "2":
+		return m.setFocus(Users)
+	case "3":
+		return m.setFocus(Chat)
+	case "c":
+		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) messages.ModalResultMsg {
+			return messages.CreateRoomMsg{Roomname: value}
+		}, true))
+	case "i":
+		return m.openModal(panels.NewWizardModal(
+			func(store *panels.WizardStore) []panels.Modal {
+				return []panels.Modal{
+					panels.NewListModal("Select a Room", roomItems(m.session.Rooms), false, func(values []string) messages.ModalResultMsg {
+						store.Set("room", values)
+						return nil
+					}),
+					panels.NewListModal("Select Users", userItems(m.session.Users), true, func(values []string) messages.ModalResultMsg {
+						store.Set("users", values)
+						return nil
+					}),
+				}
+			},
+			func(store panels.WizardStore) messages.ModalResultMsg {
+				rooms, _ := store.Get("room")
+				users, _ := store.Get("users")
+				return messages.InvitateMsg{Roomname: rooms[0], Users: users}
+			},
+		))
+	case "s":
+		return func() tea.Msg {
+			return messages.ChangeStatusMsg{
+				Status: m.session.CurrentUser.Status.Next(),
+			}
+		}
+	case "tab":
+		m.setFocus(m.focus.Next())
+	case "shift+tab":
+		m.setFocus(m.focus.Prev())
+	default:
+		var cmd tea.Cmd
+		switch m.focus {
+		case Rooms:
+			m.roomsModel, cmd = m.roomsModel.Update(msg)
+		case Users:
+			m.usersModel, cmd = m.usersModel.Update(msg)
+		case Chat:
+			m.chatModel, cmd = m.chatModel.Update(msg)
+		}
+		return cmd
+	}
+
+	return nil
+}
+
+func (m *Model) closeModal() {
+	m.activeModal = nil
+	m.syncFocus()
+}
+
+func (m *Model) SetStatus(status domain.Status) {
+	m.session.SetStatus(status)
+	m.footerModel.Status = status
+}
+
+func (m *Model) SetUsername(username string) {
+	m.footerModel.Username = username
+	m.session.SetCurrentUser(username, domain.ACTIVE)
+	m.chatModel.SetUsername(username)
+}
+
+func userItems(users []domain.User) []panels.Item {
+	items := make([]panels.Item, len(users))
+	for i, user := range users {
+		items[i] = NewUserItem(user)
+	}
+	return items
+}
+
+func roomItems(rooms map[string]*domain.Room) []panels.Item {
+	items := make([]panels.Item, 0, len(rooms))
+	for _, room := range rooms {
+		items = append(items, NewRoomItem(room))
+	}
+	return items
 }

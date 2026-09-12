@@ -1,6 +1,9 @@
 package protocol
 
-import "errors"
+import (
+	"client/internal/domain"
+	"errors"
+)
 
 type TypeC2S string
 
@@ -20,23 +23,19 @@ const (
 )
 
 type ClientMessage struct {
-	Type      TypeC2S  `json:"type,omitempty"`
-	Username  string   `json:"username,omitempty"`
-	Roomname  string   `json:"roomname,omitempty"`
-	Status    Status   `json:"status,omitempty"`
-	Text      string   `json:"text,omitempty"`
-	Usernames []string `json:"usernames,omitempty"`
+	Type TypeC2S `json:"type,omitempty"`
+	Message
 }
 
 func IdentifyMessage(username string) (ClientMessage, error) {
 	if len(username) > 8 {
 		return ClientMessage{}, errors.New("La longitud del nombre de usuario es mayor a 8 carácteres.")
 	}
-	return ClientMessage{Type: IDENTIFY, Username: username}, nil
+	return ClientMessage{Type: IDENTIFY, Message: Message{Username: username}}, nil
 }
 
-func StatusMessage(status Status) (ClientMessage, error) {
-	return ClientMessage{Type: STATUS, Status: status}, nil
+func StatusMessage(status domain.Status) (ClientMessage, error) {
+	return ClientMessage{Type: STATUS, Message: Message{Status: status}}, nil
 }
 
 func UsersMessage() (ClientMessage, error) {
@@ -47,53 +46,53 @@ func TextMessage(username string, text string) (ClientMessage, error) {
 	if len(username) > 8 {
 		return ClientMessage{}, errors.New("La longitud del nombre de usuario es mayor a 8 carácteres.")
 	}
-	return ClientMessage{Type: TEXT, Username: username, Text: text}, nil
+	return ClientMessage{Type: TEXT, Message: Message{Username: username, Text: text}}, nil
 }
 
 func PublicTextMessage(text string) (ClientMessage, error) {
-	return ClientMessage{Type: PUBLIC_TEXT, Text: text}, nil
+	return ClientMessage{Type: PUBLIC_TEXT, Message: Message{Text: text}}, nil
 }
 
 func NewRoomMessage(roomname string) (ClientMessage, error) {
 	if len(roomname) > 16 {
 		return ClientMessage{}, errors.New("La longitud del nombre de la sala es mayor a 16 carácteres.")
 	}
-	return ClientMessage{Type: NEW_ROOM, Roomname: roomname}, nil
+	return ClientMessage{Type: NEW_ROOM, Message: Message{Roomname: roomname}}, nil
 }
 
 func InviteMessage(roomname string, usernames []string) (ClientMessage, error) {
 	if len(roomname) > 16 {
 		return ClientMessage{}, errors.New("La longitud del nombre de la sala es mayor a 16 carácteres.")
 	}
-	return ClientMessage{Type: INVITE, Roomname: roomname, Usernames: usernames}, nil
+	return ClientMessage{Type: INVITE, Message: Message{Roomname: roomname, Usernames: usernames}}, nil
 }
 
 func JoinRoomMessage(roomname string) (ClientMessage, error) {
 	if len(roomname) > 16 {
 		return ClientMessage{}, errors.New("La longitud del nombre de la sala es mayor a 16 carácteres.")
 	}
-	return ClientMessage{Type: JOIN_ROOM, Roomname: roomname}, nil
+	return ClientMessage{Type: JOIN_ROOM, Message: Message{Roomname: roomname}}, nil
 }
 
 func RoomUsersMessage(roomname string) (ClientMessage, error) {
 	if len(roomname) > 16 {
 		return ClientMessage{}, errors.New("La longitud del nombre de la sala es mayor a 16 carácteres.")
 	}
-	return ClientMessage{Type: ROOM_USERS, Roomname: roomname}, nil
+	return ClientMessage{Type: ROOM_USERS, Message: Message{Roomname: roomname}}, nil
 }
 
 func RoomTextMessage(roomname string, text string) (ClientMessage, error) {
 	if len(roomname) > 16 {
 		return ClientMessage{}, errors.New("La longitud del nombre de la sala es mayor a 16 carácteres.")
 	}
-	return ClientMessage{Type: ROOM_TEXT, Roomname: roomname, Text: text}, nil
+	return ClientMessage{Type: ROOM_TEXT, Message: Message{Roomname: roomname, Text: text}}, nil
 }
 
 func LeaveRoomMessage(roomname string) (ClientMessage, error) {
 	if len(roomname) > 16 {
 		return ClientMessage{}, errors.New("La longitud del nombre de la sala es mayor a 16 carácteres.")
 	}
-	return ClientMessage{Type: LEAVE_ROOM, Roomname: roomname}, nil
+	return ClientMessage{Type: LEAVE_ROOM, Message: Message{Roomname: roomname}}, nil
 }
 
 func DisconnectMessage() (ClientMessage, error) {
