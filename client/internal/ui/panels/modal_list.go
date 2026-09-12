@@ -2,7 +2,6 @@ package panels
 
 import (
 	"client/internal/ui/messages"
-	"log"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
