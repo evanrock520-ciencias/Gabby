@@ -48,7 +48,7 @@ func (room RoomItem) Value() string {
 
 func (room RoomItem) Render(selected bool, width int) string {
 	if selected {
-		return styles.SelectedStyle.Width(width).Render(room.Value())
+		return styles.SelectedStyle.Width(width).Render(" # " + room.Value())
 	}
-	return styles.TextStyle.Render(room.Value())
+	return styles.TextStyle.Render(" # " + room.Value())
 }
