@@ -68,18 +68,17 @@ func (m ListModel) View() string {
 		boxStyle = boxStyle.BorderForeground(styles.PrimaryColor)
 	}
 
-	var sb strings.Builder
-	for i, item := range m.Items {
-		selected := i == m.cursor && m.focus
-		sb.WriteString(item.Render(selected, m.width-2))
-		sb.WriteString("\n")
-	}
-
 	innerWidth := max(0, m.width-2)
 	headerText := styles.HeaderTitleStyle.Render(m.Title)
 	divider := styles.DividerStyle.Render(strings.Repeat("─", innerWidth))
+	lines := []string{headerText, divider}
 
-	return boxStyle.Render(headerText + "\n" + divider + "\n" + sb.String())
+	for i, item := range m.Items {
+		selected := i == m.cursor && m.focus
+		lines = append(lines, item.Render(selected, m.width-2))
+	}
+
+	return boxStyle.Render(strings.Join(lines, "\n"))
 }
 
 func (m ListModel) SelectedItem() (string, bool) {
