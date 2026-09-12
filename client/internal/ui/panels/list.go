@@ -9,9 +9,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type ItemState int
+
+const (
+	ItemNormal ItemState = iota
+	ItemSelected
+	ItemChosen
+	ItemBoth
+)
+
 type Item interface {
 	Value() string
-	Render(selected bool, width int) string
+	Render(state ItemState, width int) string
 }
 
 type ListModel struct {
@@ -84,9 +93,11 @@ func (m ListModel) View() string {
 	start, end := m.computeRanges()
 
 	for i := start; i < end; i++ {
-		selected := i == m.cursor && m.focus
-		lines = append(lines, m.Items[i].Render(selected, m.width-2))
-
+		state := ItemNormal
+		if i == m.cursor && m.focus {
+			state = ItemSelected
+		}
+		lines = append(lines, m.Items[i].Render(state, m.width-2))
 	}
 
 	return boxStyle.Render(strings.Join(lines, "\n"))
