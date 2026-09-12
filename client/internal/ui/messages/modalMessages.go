@@ -21,3 +21,8 @@ type SetUserMsg struct {
 }
 
 func (SetUserMsg) isModalResult() {}
+
+type LeftChat struct {
+}
+
+func (LeftChat) isModalResult() {}
