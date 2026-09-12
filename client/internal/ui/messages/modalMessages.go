@@ -12,6 +12,7 @@ func (CreateRoomMsg) isModalResult() {}
 
 type InvitateMsg struct {
 	Roomname string
+	Users    []string
 }
 
 func (InvitateMsg) isModalResult() {}
