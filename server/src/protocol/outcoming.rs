@@ -1,4 +1,4 @@
-use crate::protocol::{incoming::TypeC2S, result::Result as ProtocolResult, status::Status};
+use crate::protocol::{incoming::TypeC2S, result::MessageResult as ProtocolResult, status::Status};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

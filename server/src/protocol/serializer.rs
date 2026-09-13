@@ -246,7 +246,7 @@ mod tests {
     fn test_serialize_response_message() {
         let msg = crate::protocol::response::new_response(
             TypeC2S::Identify,
-            crate::protocol::result::Result::Success,
+            crate::protocol::result::MessageResult::Success,
             None,
         );
         let data = serialize(&msg).unwrap();
@@ -260,7 +260,7 @@ mod tests {
     fn test_serialize_response_message_with_extra() {
         let msg = TypeS2C::response_message(
             TypeC2S::Identify,
-            crate::protocol::result::Result::UserAlreadyExists,
+            crate::protocol::result::MessageResult::UserAlreadyExists,
             Some("Username already taken".to_string()),
         );
         let data = serialize(&msg).unwrap();
