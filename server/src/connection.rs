@@ -53,6 +53,15 @@ pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<
                     Ok(0) => break,
                     Ok(_) => {
                       // TODO: Un match para emparejar el tipo de mensaje con un handle
+                      match serializer::deserialize(&line) {
+                        Ok(msg) => {
+                            println!("Valid message: {}", line.trim());
+
+                        },
+                        Err(_) => {
+                             eprintln!("Unexpected message format {}", line.trim());
+                        }
+                      }
                     }
                     Err(_) => break,
                 }
@@ -93,7 +102,10 @@ async fn identify(
 
     let msg: ClientMessage = serializer::deserialize(line.trim()).ok()?;
 
-    let username: String = msg.username?;
+    let username: String = match msg {
+        ClientMessage::Identify { username } => username,
+        _ => return None,
+    };
     let _client: Client = Client::new(username.clone(), tx);
 
     let register_result = {
