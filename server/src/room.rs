@@ -4,6 +4,7 @@ use uuid::Uuid;
 use crate::protocol::result::MessageResult;
 
 /// Representa un cuarto de chat.
+#[derive(Clone)]
 pub struct Room {
     roomname: String,
     members: HashSet<Uuid>,

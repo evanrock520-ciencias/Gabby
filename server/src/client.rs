@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::protocol::{outcoming::TypeS2C, status::Status};
 
+#[derive(Clone)]
 pub struct Client {
     id: Uuid,
     username: String,
@@ -11,16 +12,11 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(
-        id: Uuid,
-        username: String,
-        status: Status,
-        tx: mpsc::UnboundedSender<TypeS2C>,
-    ) -> Self {
+    pub fn new(username: String, tx: mpsc::UnboundedSender<TypeS2C>) -> Self {
         Client {
-            id: id,
+            id: Uuid::new_v4(),
             username: username,
-            status: status,
+            status: Status::Active,
             tx: tx,
         }
     }
