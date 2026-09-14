@@ -36,12 +36,35 @@ pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<
 
     let (reader, mut writer) = socket.into_split();
     let mut reader = BufReader::new(reader);
-    let (tx, _rx) = mpsc::unbounded_channel::<TypeS2C>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<TypeS2C>();
 
     let _username = match identify(&mut reader, &mut writer, tx, &hub).await {
         Some(name) => name,
         None => return Ok(()),
     };
+
+    let mut line = String::new();
+    loop {
+        line.clear();
+
+        tokio::select! {
+            result = reader.read_line(&mut line) => {
+                match result {
+                    Ok(0) => break,
+                    Ok(_) => {
+                      // TODO: Un match para emparejar el tipo de mensaje con un handle
+                    }
+                    Err(_) => break,
+                }
+            }
+
+            Some(msg) = rx.recv() => {
+                send_msg(&mut writer, msg).await;
+            }
+
+            else => break,
+        }
+    }
 
     Ok(())
 }
