@@ -7,7 +7,6 @@ use tokio::{
     net::TcpStream,
     sync::mpsc,
 };
-use uuid::Uuid;
 
 use crate::{
     client::Client,
@@ -37,10 +36,10 @@ pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<
 
     let (reader, mut writer) = socket.into_split();
     let mut reader = BufReader::new(reader);
-    let (tx, rx) = mpsc::unbounded_channel::<TypeS2C>();
+    let (tx, _rx) = mpsc::unbounded_channel::<TypeS2C>();
 
-    let client_id = match identify(&mut reader, &mut writer, tx, &hub).await {
-        Some(id) => id,
+    let _username = match identify(&mut reader, &mut writer, tx, &hub).await {
+        Some(name) => name,
         None => return Ok(()),
     };
 
@@ -58,22 +57,21 @@ pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<
 ///
 /// # Returns
 ///
-/// El id del cliente conectado.
+/// El nombre de usuario del cliente conectado.
 ///
 async fn identify(
     reader: &mut BufReader<OwnedReadHalf>,
     writer: &mut OwnedWriteHalf,
     tx: mpsc::UnboundedSender<TypeS2C>,
-    hub: &Arc<Mutex<Hub>>,
-) -> Option<Uuid> {
+    _hub: &Arc<Mutex<Hub>>,
+) -> Option<String> {
     let mut line: String = String::new();
     reader.read_line(&mut line).await.ok()?;
 
     let msg: ClientMessage = serializer::deserialize(line.trim()).ok()?;
 
     let username: String = msg.username?;
-    let client: Client = Client::new(username, tx);
-    let client_id: &Uuid = client.id();
+    let _client: Client = Client::new(username.clone(), tx);
 
     send_msg(
         writer,
@@ -83,7 +81,7 @@ async fn identify(
 
     // TODO: Mandar la lista de usuarios
     // TODO: Avisar a los otros usuarios de la nueva conexión
-    Some(*client_id)
+    Some(username)
 }
 
 async fn send_msg(writer: &mut OwnedWriteHalf, msg: TypeS2C) {
