@@ -73,11 +73,25 @@ async fn identify(
     let username: String = msg.username?;
     let _client: Client = Client::new(username.clone(), tx);
 
-    send_msg(
-        writer,
-        new_response(TypeC2S::Identify, MessageResult::Success, None),
-    )
-    .await;
+    let register_result = {
+        let mut hub = _hub.lock().unwrap();
+        hub.register(_client)
+    };
+
+    match register_result {
+        Ok(_) => {
+            println!("The username {} was registered.", username);
+            send_msg(
+                writer,
+                new_response(TypeC2S::Identify, MessageResult::Success, None),
+            )
+            .await;
+        }
+        Err(e) => {
+            println!("The username {} is already used.", username);
+            send_msg(writer, new_response(TypeC2S::Identify, e, None)).await;
+        }
+    }
 
     // TODO: Mandar la lista de usuarios
     // TODO: Avisar a los otros usuarios de la nueva conexión
