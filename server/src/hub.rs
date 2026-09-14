@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{client::Client, protocol::result::MessageResult, room::Room};
+use crate::{
+    client::Client,
+    protocol::{result::MessageResult, status::Status},
+    room::Room,
+};
 
 #[derive(Clone)]
 pub struct Hub {
@@ -31,8 +35,11 @@ impl Hub {
         self.clients.remove(username);
     }
 
-    pub fn usernames(&self) -> Vec<String> {
-        self.clients.keys().cloned().collect()
+    pub fn usernames(&self) -> HashMap<String, Status> {
+        self.clients
+            .iter()
+            .map(|(username, client)| (username.clone(), *client.status()))
+            .collect()
     }
 }
 

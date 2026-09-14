@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::protocol::{incoming::TypeC2S, result::MessageResult as ProtocolResult, status::Status};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +20,7 @@ pub enum TypeS2C {
         status: Status,
     },
     UserList {
-        usernames: Vec<String>,
+        usernames: HashMap<String, Status>,
     },
     TextFrom {
         username: String,
@@ -63,7 +65,7 @@ impl TypeS2C {
         Self::NewStatus { username, status }
     }
 
-    pub fn user_list_message(usernames: Vec<String>) -> Self {
+    pub fn user_list_message(usernames: HashMap<String, Status>) -> Self {
         Self::UserList { usernames }
     }
 
