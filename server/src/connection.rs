@@ -86,6 +86,14 @@ async fn identify(
                 new_response(TypeC2S::Identify, MessageResult::Success, None),
             )
             .await;
+
+            let usernames = {
+                let hub = _hub.lock().unwrap();
+                hub.usernames()
+            };
+
+            println!("Current users {:?}", usernames);
+            send_msg(writer, TypeS2C::UserList { usernames }).await;
         }
         Err(e) => {
             println!("The username {} is already used.", username);
@@ -93,7 +101,6 @@ async fn identify(
         }
     }
 
-    // TODO: Mandar la lista de usuarios
     // TODO: Avisar a los otros usuarios de la nueva conexión
     Some(username)
 }
