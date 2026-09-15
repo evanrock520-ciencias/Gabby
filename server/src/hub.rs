@@ -49,6 +49,15 @@ impl Hub {
             .map(|(username, client)| (username.clone(), *client.status()))
             .collect()
     }
+
+    pub fn change_status(&mut self, username: &str, new_status: Status) -> bool {
+        if let Some(client) = self.clients.get_mut(username) {
+            client.set_status(new_status)
+        } else {
+            eprintln!("The user {} doesn't exists.", username);
+            false
+        }
+    }
 }
 
 #[cfg(test)]

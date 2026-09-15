@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -9,7 +8,7 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::hub;
+use crate::protocol::status::Status;
 use crate::{
     client::Client,
     hub::Hub,
@@ -151,9 +150,15 @@ async fn identify(
     Some(username)
 }
 
-async fn handle_users_list(username: &str, hub: &Arc<Mutex<Hub>>, writer: &mut OwnedWriteHalf) {
-    println!("{} requires the user list", username);
-
+/// Maneja el mensaje USERS.
+///
+/// # Arguments
+///
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+///
+async fn handle_users_list(hub: &Arc<Mutex<Hub>>, writer: &mut OwnedWriteHalf) {
     let users = {
         let hub = hub.lock().unwrap();
         hub.usernames()
@@ -162,6 +167,40 @@ async fn handle_users_list(username: &str, hub: &Arc<Mutex<Hub>>, writer: &mut O
     send_msg(writer, TypeS2C::UserList { usernames: users }).await
 }
 
+/// Maneja el mensaje STATUS.
+///
+/// # Arguments
+///
+/// * `username` - El nombre de usuario del cliente.
+/// * `status` - El nuevo status del cliente.
+/// * `hub` - Referencia compartida al hub central del servidor.
+///
+///
+async fn handle_status(username: &str, status: Status, hub: &Arc<Mutex<Hub>>) {
+    {
+        let mut hub = hub.lock().unwrap();
+        if hub.change_status(username, status) {
+            hub.broadcast(
+                &TypeS2C::NewStatus {
+                    username: username.into(),
+                    status,
+                },
+                username,
+            );
+        }
+    }
+}
+
+/// Enruta los mensajes a su handler correspondiente.
+///
+/// # Arguments
+///
+/// * `msg` - El mensaje deserializado que mando el cliente.
+/// * `username` - El nombre de usuario del cliente.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+///
 async fn route_msg(
     msg: ClientMessage,
     username: &str,
@@ -169,7 +208,8 @@ async fn route_msg(
     writer: &mut OwnedWriteHalf,
 ) {
     match msg {
-        ClientMessage::Users => handle_users_list(username, hub, writer).await,
+        ClientMessage::Users => handle_users_list(hub, writer).await,
+        ClientMessage::Status { status } => handle_status(username, status, hub).await,
         _ => return,
     }
 }

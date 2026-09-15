@@ -26,8 +26,13 @@ impl Client {
         &self.status
     }
 
-    pub fn set_status(&mut self, status: Status) {
-        self.status = status;
+    pub fn set_status(&mut self, status: Status) -> bool {
+        if self.status != status {
+            self.status = status;
+            true
+        } else {
+            false
+        }
     }
 
     pub fn send(&self, msg: &TypeS2C) {
