@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -8,6 +9,7 @@ use tokio::{
     sync::mpsc,
 };
 
+use crate::hub;
 use crate::{
     client::Client,
     hub::Hub,
@@ -56,7 +58,7 @@ pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<
                       match serializer::deserialize(&line) {
                         Ok(msg) => {
                             println!("Valid message: {}", line.trim());
-
+                            route_msg(msg, &_username, &hub, &mut writer).await;
                         },
                         Err(_) => {
                              eprintln!("Unexpected message format {}", line.trim());
@@ -138,6 +140,29 @@ async fn identify(
 
     // TODO: Avisar a los otros usuarios de la nueva conexión
     Some(username)
+}
+
+async fn handle_users_list(username: &str, hub: &Arc<Mutex<Hub>>, writer: &mut OwnedWriteHalf) {
+    println!("{} requires the user list", username);
+
+    let users = {
+        let hub = hub.lock().unwrap();
+        hub.usernames()
+    };
+
+    send_msg(writer, TypeS2C::UserList { usernames: users }).await
+}
+
+async fn route_msg(
+    msg: ClientMessage,
+    username: &str,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut OwnedWriteHalf,
+) {
+    match msg {
+        ClientMessage::Users => handle_users_list(username, hub, writer).await,
+        _ => return,
+    }
 }
 
 async fn send_msg(writer: &mut OwnedWriteHalf, msg: TypeS2C) {
