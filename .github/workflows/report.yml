@@ -20,10 +20,10 @@ jobs:
       - name: Install Typst
         uses: typst-community/setup-typst@v5
         with:
-          executable-name: typst-latest
+          typst-version: latest
 
       - name: Compile report
-        run: just docs 
+        run: typst compile docs/report/main.typ docs/report/main.pdf 
 
       - name: Upload report
         uses: actions/upload-artifact@v4
