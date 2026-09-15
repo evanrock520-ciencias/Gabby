@@ -46,3 +46,9 @@ clean-server:
     cd server && cargo clean
 
 clean: clean-client clean-server
+
+docs:
+  cd docs/report && typst compile main.typ
+
+view:
+  xdg-open docs/report/main.pdf
