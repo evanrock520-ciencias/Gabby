@@ -20,18 +20,50 @@ impl Hub {
         }
     }
 
+    /// Retorna si el cliente pertenece al hub.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - El nombre de usuario del cliente.
+    ///
+    /// # Returns
+    ///
+    /// `true` si es un usuario del hub.
+    /// `false` si no es usuario del hub.
     pub fn is_user(&self, username: &str) -> bool {
         return self.clients.contains_key(username);
     }
 
+    /// Retorna la cantidad de clientes en el hub.
+    ///
+    /// # Returns
+    ///
+    /// La cantidad de clientes en el hub.
     pub fn connected_users(&self) -> usize {
         return self.clients.len();
     }
 
+    /// Retorna si la sala pertenece al hub.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - El nombre de la sala.
+    ///
+    /// # Returns
+    ///
+    /// `true` si es una sala del hub.
+    /// `false` si no es sala del hub.
     pub fn is_room(&self, roomname: &str) -> bool {
         return self.rooms.contains_key(roomname);
     }
 
+    /// Propaga un mensaje a todos los clientes.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - El mensaje a propagar.
+    /// * `except` - El cliente excluido de la propagación.
+    ///
     pub fn broadcast(&self, msg: &TypeS2C, except: &str) {
         for (id, client) in &self.clients {
             if id != except {
@@ -40,6 +72,20 @@ impl Hub {
         }
     }
 
+    /// Registra a un usuario al Hub.
+    ///
+    /// # Arguments
+    ///
+    /// * `client` - El cliente a agregar al hub.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` si el cliente fue registrado exitosamente.
+    /// * `Ok(false)` si el usuario reemplazó a uno previo con la misma clave.
+    ///
+    /// # Errors
+    ///
+    /// Retorna `Err(MessageResult::UserAlreadyExists)` si el usuario ya existe en el hub.
     pub fn register(&mut self, client: Client) -> Result<bool, MessageResult> {
         if self.clients.contains_key(client.username()) {
             return Err(MessageResult::UserAlreadyExists);
@@ -51,10 +97,22 @@ impl Hub {
             .is_none())
     }
 
+    /// Elimina a un usuario del Hub.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - El nombre de usuario del cliente a eliminar.
+    ///
     pub fn unregister(&mut self, username: &str) {
         self.clients.remove(username);
     }
 
+    /// Retorna los usernames y status de todos los clientes del Hub.
+    ///
+    /// # Returns
+    ///
+    /// Un `HashMap` donde la clave es el nombre de usuario (`String`)
+    /// y el valor es su estado actual (`Status`).
     pub fn usernames(&self) -> HashMap<String, Status> {
         self.clients
             .iter()
@@ -62,6 +120,17 @@ impl Hub {
             .collect()
     }
 
+    /// Cambia el status de un cliente en el Hub.
+    ///
+    /// # Arguments
+    ///
+    /// * `client` - El cliente al cual cambiar el status.
+    /// * `new_status` - El nuevo status del cliente.
+    ///
+    /// # Returns
+    ///
+    /// * `true` si el status era diferente.
+    /// * `false` si el status era igual.
     pub fn change_status(&mut self, username: &str, new_status: Status) -> bool {
         if let Some(client) = self.clients.get_mut(username) {
             client.set_status(new_status)
