@@ -131,6 +131,16 @@ async fn identify(
 
             println!("Current users {:?}", usernames);
             send_msg(writer, TypeS2C::UserList { usernames }).await;
+
+            {
+                let hub = _hub.lock().unwrap();
+                hub.broadcast(
+                    &TypeS2C::NewUser {
+                        username: username.clone(),
+                    },
+                    &username,
+                );
+            }
         }
         Err(e) => {
             println!("The username {} is already used.", username);
@@ -138,7 +148,6 @@ async fn identify(
         }
     }
 
-    // TODO: Avisar a los otros usuarios de la nueva conexión
     Some(username)
 }
 

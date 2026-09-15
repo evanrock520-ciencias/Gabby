@@ -30,7 +30,7 @@ impl Client {
         self.status = status;
     }
 
-    pub fn send(&self, msg: TypeS2C) {
-        let _ = self.tx.send(msg);
+    pub fn send(&self, msg: &TypeS2C) {
+        let _ = self.tx.send(msg.clone());
     }
 }

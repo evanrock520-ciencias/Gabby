@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     client::Client,
-    protocol::{result::MessageResult, status::Status},
+    protocol::{outcoming::TypeS2C, result::MessageResult, status::Status},
     room::Room,
 };
 
@@ -17,6 +17,14 @@ impl Hub {
         Hub {
             clients: HashMap::new(),
             rooms: HashMap::new(),
+        }
+    }
+
+    pub fn broadcast(&self, msg: &TypeS2C, except: &str) {
+        for (id, client) in &self.clients {
+            if id != except {
+                client.send(msg);
+            }
         }
     }
 
