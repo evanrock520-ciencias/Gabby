@@ -23,6 +23,7 @@ async fn main() {
 
     loop {
         let (socket, addr) = listener.accept().await.unwrap();
+        println!("Received a connection petition from {}", addr);
         let client_hub = Arc::clone(&hub);
         tokio::spawn(async move {
             if let Err(e) = connection::handle(socket, client_hub).await {

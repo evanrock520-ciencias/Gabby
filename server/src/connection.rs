@@ -1,15 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::TcpStream,
+    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, split},
     sync::mpsc,
 };
 
-use crate::hub;
-use crate::protocol::incoming::ClientMessage::NewRoom;
 use crate::protocol::status::Status;
 use crate::{
     client::Client,
@@ -27,17 +22,14 @@ use crate::{
 ///
 /// # Arguments
 ///
-/// * `socket` - La conexión TCP establecida con el cliente.
+/// * `stream` - El stream bidireccional establecido con el cliente.
 /// * `hub` - Referencia compartida al hub central del servidor.
 ///
-///
-pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<()> {
-    println!(
-        "Received a connection petition from {}",
-        socket.peer_addr()?
-    );
-
-    let (reader, mut writer) = socket.into_split();
+pub async fn handle<S>(stream: S, hub: Arc<Mutex<Hub>>) -> std::io::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    let (reader, mut writer) = split(stream);
     let mut reader = BufReader::new(reader);
     let (tx, mut rx) = mpsc::unbounded_channel::<TypeS2C>();
 
@@ -94,12 +86,16 @@ pub async fn handle(socket: TcpStream, hub: Arc<Mutex<Hub>>) -> std::io::Result<
 ///
 /// El nombre de usuario del cliente conectado.
 ///
-async fn identify(
-    reader: &mut BufReader<OwnedReadHalf>,
-    writer: &mut OwnedWriteHalf,
+async fn identify<R, W>(
+    reader: &mut BufReader<R>,
+    writer: &mut W,
     tx: mpsc::UnboundedSender<TypeS2C>,
     _hub: &Arc<Mutex<Hub>>,
-) -> Option<String> {
+) -> Option<String>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
     let mut line: String = String::new();
     reader.read_line(&mut line).await.ok()?;
 
@@ -142,14 +138,15 @@ async fn identify(
                     &username,
                 );
             }
+
+            Some(username)
         }
         Err(e) => {
             println!("The username {} is already used.", username);
             send_msg(writer, new_response(TypeC2S::Identify, e, None)).await;
+            None
         }
     }
-
-    Some(username)
 }
 
 /// Maneja el mensaje USERS.
@@ -160,7 +157,10 @@ async fn identify(
 /// * `writer` - Escritor del socket del cliente.
 ///
 ///
-async fn handle_users_list(hub: &Arc<Mutex<Hub>>, writer: &mut OwnedWriteHalf) {
+async fn handle_users_list<W>(hub: &Arc<Mutex<Hub>>, writer: &mut W)
+where
+    W: AsyncWrite + Unpin,
+{
     let users = {
         let hub = hub.lock().unwrap();
         hub.usernames()
@@ -225,12 +225,10 @@ async fn handle_public_text(username: &str, text: &str, hub: &Arc<Mutex<Hub>>) {
 /// * `writer` - Escritor del socket del cliente.
 ///
 ///
-async fn route_msg(
-    msg: ClientMessage,
-    username: &str,
-    hub: &Arc<Mutex<Hub>>,
-    writer: &mut OwnedWriteHalf,
-) {
+async fn route_msg<W>(msg: ClientMessage, username: &str, hub: &Arc<Mutex<Hub>>, writer: &mut W)
+where
+    W: AsyncWrite + Unpin,
+{
     match msg {
         ClientMessage::Users => handle_users_list(hub, writer).await,
         ClientMessage::Status { status } => handle_status(username, status, hub).await,
@@ -239,7 +237,10 @@ async fn route_msg(
     }
 }
 
-async fn send_msg(writer: &mut OwnedWriteHalf, msg: TypeS2C) {
+async fn send_msg<W>(writer: &mut W, msg: TypeS2C)
+where
+    W: AsyncWrite + Unpin,
+{
     if let Ok(json) = serializer::serialize(&msg) {
         let line = format!("{json}\n");
         writer.write_all(line.as_bytes()).await.ok();
