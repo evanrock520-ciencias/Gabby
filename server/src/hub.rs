@@ -47,7 +47,7 @@ impl Hub {
     ///
     /// # Arguments
     ///
-    /// * `username` - El nombre de la sala.
+    /// * `roomname` - El nombre de la sala.
     ///
     /// # Returns
     ///
@@ -55,6 +55,23 @@ impl Hub {
     /// `false` si no es sala del hub.
     pub fn is_room(&self, roomname: &str) -> bool {
         return self.rooms.contains_key(roomname);
+    }
+
+    /// Retorna el usuario pertenece a una sala.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - El nombre de usuario del cliente.
+    /// * `roomname` - El nombre de la sala.
+    ///
+    /// # Returns
+    ///
+    /// `true` si es una sala del hub.
+    /// `false` si no es sala del hub.
+    pub fn is_member_of(&self, username: &str, roomname: &str) -> bool {
+        self.rooms
+            .get(roomname)
+            .is_some_and(|room| room.is_member(username))
     }
 
     /// Propaga un mensaje a todos los clientes.
@@ -105,6 +122,108 @@ impl Hub {
     ///
     pub fn unregister(&mut self, username: &str) {
         self.clients.remove(username);
+    }
+
+    /// Registra una sala y agrega a su creador como miembro.
+    ///
+    /// # Arguments
+    ///
+    /// * `room` - La sala a registrar.
+    /// * `username` - El nombre de usuario del creador de la sala.
+    ///
+    /// # Returns
+    ///
+    /// Retorna `Ok(true)` si la sala fue registrada exitosamente.
+    ///
+    /// # Errors
+    ///
+    /// Retorna [`MessageResult::RoomAlreadyExists`] si ya existe una sala registrada
+    /// con el mismo nombre.
+    ///
+    pub fn register_room(&mut self, roomname: &str, username: &str) -> Result<bool, MessageResult> {
+        if self.rooms.contains_key(roomname) {
+            return Err(MessageResult::RoomAlreadyExists);
+        }
+
+        if !self.is_user(username) {
+            return Err(MessageResult::NoSuchUser);
+        }
+
+        let room = Room::new(roomname.to_string(), username.to_string());
+        let room = self.rooms.insert(room.roomname().into(), room);
+
+        Ok(room.is_none())
+    }
+
+    /// Agrega a una lista de clientes a la lista de invitados de la sala.
+    ///
+    /// # Arguments
+    ///
+    /// * `room` - La sala a la que invitaron a los usuarios.
+    /// * `usernames` - La lista de usuarios invitados.
+    ///
+    /// # Returns
+    ///
+    /// Retorna `Ok(true)` si se invitaron a todos los usuarios a la sala.
+    ///
+    /// # Errors
+    ///
+    /// Retorna [`MessageResult::NoSuchRoom`] si no existe la sala.
+    /// Retorna [`MessageResult::NoSuchUser`] si al menos uno de los usuarios no existe.
+    ///
+    pub fn invitate(
+        &mut self,
+        roomname: &str,
+        usernames: Vec<&str>,
+    ) -> Result<bool, MessageResult> {
+        for user in &usernames {
+            if !self.is_user(user) {
+                return Err(MessageResult::NoSuchUser);
+            }
+        }
+
+        let Some(room) = self.rooms.get_mut(roomname) else {
+            return Err(MessageResult::NoSuchRoom);
+        };
+
+        for user in usernames {
+            room.invitate(user);
+        }
+        return Ok(true);
+    }
+
+    /// Agrega a una lista de clientes a la lista de invitados de la sala.
+    ///
+    /// # Arguments
+    ///
+    /// * `room` - La sala de invitación.
+    /// * `usernames` - El usuario que aceptó la invitación.
+    ///
+    /// # Returns
+    ///
+    /// Retorna `Ok(true)` si fue posible unirse a la sala.
+    ///
+    /// # Errors
+    ///
+    /// Retorna [`MessageResult::NoSuchRoom`] si no existe la sala.
+    /// Retorna [`MessageResult::NoSuchUser`] si el usuario no pertenece al hub.
+    /// Retorna [`MessageResult::NotInvited`] si el usuario no fue invitado a la sala.
+    ///
+    pub fn be_member_of(&mut self, roomname: &str, username: &str) -> Result<bool, MessageResult> {
+        if !self.is_user(username) {
+            return Err(MessageResult::NoSuchUser);
+        }
+
+        let Some(room) = self.rooms.get_mut(roomname) else {
+            return Err(MessageResult::NoSuchRoom);
+        };
+
+        if !room.is_invited(username) {
+            return Err(MessageResult::NotInvited);
+        }
+
+        room.add_member(username).unwrap();
+        Ok(true)
     }
 
     /// Retorna los usernames y status de todos los clientes del Hub.
@@ -277,5 +396,107 @@ mod test {
 
         assert_eq!(rx_bob.try_recv().unwrap(), msg.clone());
         assert!(rx_alice.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_register_room() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        assert!(hub.is_room("Room 1".into()));
+        assert!(hub.is_member_of("alice", "Room 1"));
+    }
+
+    #[test]
+    fn test_register_room_with_non_registered_user() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let _ = Client::new("alice".to_string(), tx_alice);
+
+        let error = hub.register_room("Room 1", "alice".into()).unwrap_err();
+        assert_eq!(MessageResult::NoSuchUser, error);
+    }
+
+    #[test]
+    fn test_invitate_to_rooms() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, _) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let guests = vec!["bob", "charlie"];
+
+        assert!(hub.invitate("Room 1", guests).unwrap());
+    }
+
+    #[test]
+    fn test_join_to_room() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, _) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let guests = vec!["bob", "charlie"];
+
+        assert!(hub.invitate("Room 1", guests.clone()).unwrap());
+        for client in guests {
+            assert!(hub.be_member_of("Room 1", client).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_cant_join_if_not_invited() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, _) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let guests = vec!["bob", "charlie"];
+
+        for client in guests {
+            assert_eq!(
+                MessageResult::NotInvited,
+                hub.be_member_of("Room 1", client).unwrap_err()
+            );
+        }
     }
 }
