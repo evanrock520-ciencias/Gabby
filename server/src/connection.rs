@@ -215,6 +215,42 @@ async fn handle_public_text(username: &str, text: &str, hub: &Arc<Mutex<Hub>>) {
     }
 }
 
+/// Maneja el mensaje CREATE_ROOM.
+///
+/// # Arguments
+///
+/// * `username` - El nombre de usuario del cliente.
+/// * `roomname` - El nombre de la sala.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_create_room<W>(
+    username: &str,
+    roomname: &str,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut W,
+) where
+    W: AsyncWrite + Unpin,
+{
+    let result = {
+        let mut hub = hub.lock().unwrap();
+        hub.register_room(roomname, username)
+    };
+
+    match result {
+        Ok(_) => {
+            send_msg(
+                writer,
+                new_response(TypeC2S::NewRoom, MessageResult::Success, None),
+            )
+            .await;
+        }
+        Err(e) => {
+            send_msg(writer, new_response(TypeC2S::NewRoom, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -233,6 +269,9 @@ where
         ClientMessage::Users => handle_users_list(hub, writer).await,
         ClientMessage::Status { status } => handle_status(username, status, hub).await,
         ClientMessage::PublicText { text } => handle_public_text(username, &text, hub).await,
+        ClientMessage::NewRoom { roomname } => {
+            handle_create_room(username, &roomname, hub, writer).await
+        }
         _ => return,
     }
 }
@@ -245,4 +284,9 @@ where
         let line = format!("{json}\n");
         writer.write_all(line.as_bytes()).await.ok();
     }
+}
+
+#[cfg(test)]
+mod test {
+    // TODO: Agregar pruebas para la conexión usando tokio::io::duplex
 }
