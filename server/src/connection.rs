@@ -8,6 +8,8 @@ use tokio::{
     sync::mpsc,
 };
 
+use crate::hub;
+use crate::protocol::incoming::ClientMessage::NewRoom;
 use crate::protocol::status::Status;
 use crate::{
     client::Client,
@@ -191,6 +193,28 @@ async fn handle_status(username: &str, status: Status, hub: &Arc<Mutex<Hub>>) {
     }
 }
 
+/// Maneja el mensaje PUBLIC_TEXT.
+///
+/// # Arguments
+///
+/// * `username` - El nombre de usuario del cliente.
+/// * `text` - El mensaje de texto enviado.
+/// * `hub` - Referencia compartida al hub central del servidor.
+///
+///
+async fn handle_public_text(username: &str, text: &str, hub: &Arc<Mutex<Hub>>) {
+    {
+        let hub = hub.lock().unwrap();
+        hub.broadcast(
+            &TypeS2C::PublicTextFrom {
+                username: username.to_string(),
+                text: text.to_string(),
+            },
+            username,
+        );
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -210,6 +234,7 @@ async fn route_msg(
     match msg {
         ClientMessage::Users => handle_users_list(hub, writer).await,
         ClientMessage::Status { status } => handle_status(username, status, hub).await,
+        ClientMessage::PublicText { text } => handle_public_text(username, &text, hub).await,
         _ => return,
     }
 }
