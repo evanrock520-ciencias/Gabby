@@ -91,6 +91,13 @@ impl Hub {
         }
     }
 
+    /// Propaga un mensaje a todos los clientes en una sala.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - El mensaje a propagar.
+    /// * `except` - El cliente excluido de la propagación.
+    ///
     pub fn to_room(
         &self,
         msg: &TypeS2C,
@@ -104,7 +111,7 @@ impl Hub {
         for user in room.members() {
             if let Some(client) = self.clients.get(user) {
                 if client.username() == except {
-                    break;
+                    continue;
                 }
                 client.send(msg);
             }
