@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     client::Client,
-    protocol::{outcoming::TypeS2C, result::MessageResult, status::Status},
+    protocol::{incoming::TypeC2S, outcoming::TypeS2C, result::MessageResult, status::Status},
     room::Room,
 };
 
@@ -10,6 +10,7 @@ use crate::{
 pub struct Hub {
     clients: HashMap<String, Client>,
     rooms: HashMap<String, Room>,
+    dms: HashMap<String, Room>,
 }
 
 impl Hub {
@@ -17,6 +18,7 @@ impl Hub {
         Hub {
             clients: HashMap::new(),
             rooms: HashMap::new(),
+            dms: HashMap::new(),
         }
     }
 
@@ -87,6 +89,28 @@ impl Hub {
                 client.send(msg);
             }
         }
+    }
+
+    pub fn to_room(
+        &self,
+        msg: &TypeS2C,
+        roomname: &str,
+        except: &str,
+    ) -> Result<bool, MessageResult> {
+        let Some(room) = self.rooms.get(roomname) else {
+            return Err(MessageResult::NoSuchRoom);
+        };
+
+        for user in room.members() {
+            if let Some(client) = self.clients.get(user) {
+                if client.username() == except {
+                    break;
+                }
+                client.send(msg);
+            }
+        }
+
+        Ok(true)
     }
 
     /// Registra a un usuario al Hub.
@@ -498,5 +522,42 @@ mod test {
                 hub.be_member_of("Room 1", client).unwrap_err()
             );
         }
+    }
+
+    #[test]
+    fn test_send_to_room() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, mut rx_alice) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, mut rx_bob) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, mut rx_charlie) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let guests = vec!["bob"];
+
+        hub.invitate("Room 1", guests.clone()).unwrap();
+        for client in guests {
+            hub.be_member_of("Room 1", client).unwrap();
+        }
+
+        let msg = TypeS2C::NewStatus {
+            username: "alice".into(),
+            status: Status::Away,
+        };
+
+        hub.to_room(&msg, "Room 1", "alice").unwrap();
+
+        assert_eq!(rx_bob.try_recv().unwrap(), msg.clone());
+        assert!(rx_alice.try_recv().is_err());
+        assert!(rx_charlie.try_recv().is_err());
     }
 }
