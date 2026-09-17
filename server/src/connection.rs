@@ -251,6 +251,50 @@ async fn handle_create_room<W>(
     }
 }
 
+/// Maneja el mensaje TEXT.
+///
+/// # Arguments
+///
+/// * `sender` - El nombre de usuario del cliente que manda el mensaje.
+/// * `roomname` - El nombre de usuario del cliente que recibe el mensaje.
+/// * ``text - El mensaje de texto enviado.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_text<W>(
+    sender: &str,
+    receiver: &str,
+    text: &str,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut W,
+) where
+    W: AsyncWrite + Unpin,
+{
+    let msg = TypeS2C::TextFrom {
+        username: sender.to_string(),
+        text: text.to_string(),
+    };
+
+    let result = {
+        let hub = hub.lock().unwrap();
+        hub.send_to(&msg, sender, receiver)
+    };
+
+    match result {
+        Ok(_) => {
+            send_msg(
+                writer,
+                new_response(TypeC2S::Text, MessageResult::Success, None),
+            )
+            .await;
+        }
+        Err(e) => {
+            // TODO: Manejar ambos tipos de errores, por el extra
+            send_msg(writer, new_response(TypeC2S::Text, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -272,6 +316,10 @@ where
         ClientMessage::NewRoom { roomname } => {
             handle_create_room(username, &roomname, hub, writer).await
         }
+        ClientMessage::Text {
+            username: receiver,
+            text,
+        } => handle_text(username, &receiver, &text, hub, writer).await,
         _ => return,
     }
 }
