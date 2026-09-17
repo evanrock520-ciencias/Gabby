@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     client::Client,
-    protocol::{incoming::TypeC2S, outcoming::TypeS2C, result::MessageResult, status::Status},
+    protocol::{outcoming::TypeS2C, result::MessageResult, status::Status},
     room::Room,
 };
 
@@ -10,7 +10,6 @@ use crate::{
 pub struct Hub {
     clients: HashMap<String, Client>,
     rooms: HashMap<String, Room>,
-    dms: HashMap<String, Room>,
 }
 
 impl Hub {
@@ -18,7 +17,6 @@ impl Hub {
         Hub {
             clients: HashMap::new(),
             rooms: HashMap::new(),
-            dms: HashMap::new(),
         }
     }
 
@@ -116,6 +114,30 @@ impl Hub {
                 client.send(msg);
             }
         }
+
+        Ok(true)
+    }
+
+    /// Envía un mensaje a otro cliente.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - El mensaje a propagar.
+    /// * `sender` - El usuario que manda el mensaje.
+    /// * `receiver` - El usuario que recibe el mensaje.
+    ///
+    pub fn send_to(
+        &self,
+        msg: &TypeS2C,
+        sender: &str,
+        receiver: &str,
+    ) -> Result<bool, MessageResult> {
+        if !self.is_user(receiver) || !self.is_user(sender) {
+            return Err(MessageResult::NoSuchUser);
+        }
+
+        let receiver = self.clients.get(receiver).unwrap();
+        receiver.send(msg);
 
         Ok(true)
     }
@@ -566,5 +588,45 @@ mod test {
         assert_eq!(rx_bob.try_recv().unwrap(), msg.clone());
         assert!(rx_alice.try_recv().is_err());
         assert!(rx_charlie.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_send_to_client() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, mut rx_alice) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, mut rx_bob) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, mut rx_charlie) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let msg = TypeS2C::TextFrom {
+            username: "alice".to_string(),
+            text: "Hello".to_string(),
+        };
+        hub.send_to(&msg, "alice", "bob").unwrap();
+
+        assert_eq!(rx_bob.try_recv().unwrap(), msg.clone());
+        assert!(rx_alice.try_recv().is_err());
+        assert!(rx_charlie.try_recv().is_err());
+
+        let msg = TypeS2C::TextFrom {
+            username: "bob".to_string(),
+            text: "charlie".to_string(),
+        };
+
+        hub.send_to(&msg, "bob", "charlie").unwrap();
+
+        assert_eq!(rx_charlie.try_recv().unwrap(), msg.clone());
+        assert!(rx_bob.try_recv().is_err());
+        assert!(rx_alice.try_recv().is_err());
     }
 }
