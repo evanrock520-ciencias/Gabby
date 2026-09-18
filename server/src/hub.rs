@@ -311,6 +311,26 @@ impl Hub {
             false
         }
     }
+
+    pub fn room_usernames(
+        &self,
+        roomname: &str,
+        username: &str,
+    ) -> Result<HashMap<String, Status>, MessageResult> {
+        let Some(room) = self.rooms.get(roomname) else {
+            return Err(MessageResult::NoSuchRoom);
+        };
+
+        if !room.is_member(username) {
+            return Err(MessageResult::NotJoined);
+        }
+
+        Ok(room
+            .members()
+            .iter()
+            .filter_map(|u| self.clients.get(u).map(|c| (u.to_string(), *c.status())))
+            .collect())
+    }
 }
 
 #[cfg(test)]
