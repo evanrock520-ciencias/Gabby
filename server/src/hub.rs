@@ -649,4 +649,76 @@ mod test {
         assert!(rx_bob.try_recv().is_err());
         assert!(rx_alice.try_recv().is_err());
     }
+
+    #[test]
+    fn test_room_userlist() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, _) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let (tx_diane, _) = mpsc::unbounded_channel();
+        let diane = Client::new("diane".to_string(), tx_diane);
+        hub.register(diane).unwrap();
+
+        let guests = vec!["bob", "charlie"];
+
+        hub.invitate("Room 1", guests.clone()).unwrap();
+        for client in guests.clone() {
+            hub.be_member_of("Room 1", client).unwrap();
+        }
+
+        let room_usernames = hub.room_usernames("Room 1", "alice").unwrap();
+
+        for client in guests {
+            assert!(room_usernames.contains_key(client));
+        }
+    }
+
+    #[test]
+    fn test_room_userlist_on_non_existent_room() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        assert_eq!(
+            MessageResult::NoSuchRoom,
+            hub.room_usernames("Room 2", "alice").unwrap_err()
+        );
+    }
+
+    #[test]
+    fn test_room_userlist_with_non_joined_client() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        assert_eq!(
+            MessageResult::NotJoined,
+            hub.room_usernames("Room 1", "bob").unwrap_err()
+        );
+    }
 }
