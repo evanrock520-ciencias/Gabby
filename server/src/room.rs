@@ -95,6 +95,10 @@ impl Room {
     pub fn members(&self) -> &HashSet<String> {
         &self.members
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.members().is_empty()
+    }
 }
 
 #[cfg(test)]
