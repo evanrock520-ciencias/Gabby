@@ -205,6 +205,9 @@ impl Hub {
         let room = Room::new(roomname.to_string(), username.to_string());
         let room = self.rooms.insert(room.roomname().into(), room);
 
+        let client = self.clients.get_mut(username).unwrap();
+        client.add_membership(roomname);
+
         Ok(room.is_none())
     }
 
@@ -276,6 +279,9 @@ impl Hub {
         }
 
         room.add_member(username).unwrap();
+        let client = self.clients.get_mut(username).unwrap();
+        client.add_membership(roomname);
+
         Ok(true)
     }
 
