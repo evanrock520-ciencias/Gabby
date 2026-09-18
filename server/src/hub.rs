@@ -312,6 +312,22 @@ impl Hub {
         }
     }
 
+    /// Otorga una lista de los clientes en una sala.
+    ///
+    /// # Arguments
+    ///
+    /// * `roomname` - La sala de la que se solicita la lista.
+    /// * `username` - El usuario que solicita la lista.
+    ///
+    /// # Returns
+    ///
+    /// Un `HashMap` donde la clave es el nombre de usuario (`String`)
+    /// y el valor es su estado actual (`Status`).
+    ///
+    /// # Errors
+    ///
+    /// Retorna [`MessageResult::NoSuchRoom`] si no existe la sala.
+    /// Retorna [`MessageResult::NotJoined`] si el usuario no pertenece a la sala.
     pub fn room_usernames(
         &self,
         roomname: &str,
@@ -330,6 +346,39 @@ impl Hub {
             .iter()
             .filter_map(|u| self.clients.get(u).map(|c| (u.to_string(), *c.status())))
             .collect())
+    }
+
+    /// Elimina a un cliente de una sala.
+    ///
+    /// # Arguments
+    ///
+    /// * `roomname` - La sala a abandonar.
+    /// * `username` - El usuario que solicita abandonar la sala.
+    ///
+    /// # Returns
+    ///
+    /// Retorna `Ok(true)` si fue posible abandonar a la sala.
+    ///
+    /// # Errors
+    ///
+    /// Retorna [`MessageResult::NoSuchRoom`] si no existe la sala.
+    /// Retorna [`MessageResult::NotJoined`] si el usuario no pertenece a la sala.
+    pub fn leave_room(&mut self, roomname: &str, username: &str) -> Result<bool, MessageResult> {
+        let Some(room) = self.rooms.get_mut(roomname) else {
+            return Err(MessageResult::NoSuchRoom);
+        };
+
+        if !room.is_member(username) {
+            return Err(MessageResult::NotJoined);
+        }
+
+        room.remove_member(username);
+
+        if room.is_empty() {
+            self.rooms.remove(roomname);
+        }
+
+        Ok(true)
     }
 }
 
@@ -720,5 +769,48 @@ mod test {
             MessageResult::NotJoined,
             hub.room_usernames("Room 1", "bob").unwrap_err()
         );
+    }
+
+    #[test]
+    fn test_leave_room() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, _) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let guests = vec!["bob", "charlie"];
+
+        assert!(hub.invitate("Room 1", guests.clone()).unwrap());
+        for client in guests {
+            assert!(hub.be_member_of("Room 1", client).unwrap());
+        }
+
+        assert!(hub.leave_room("Room 1", "bob").unwrap());
+        assert!(!hub.is_member_of("Room 1", "bob"));
+    }
+
+    #[test]
+    fn test_empty_room_is_removed() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        assert!(hub.leave_room("Room 1", "alice").unwrap());
+        assert!(!hub.is_room("Room 1"));
     }
 }
