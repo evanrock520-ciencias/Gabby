@@ -427,6 +427,40 @@ where
     }
 }
 
+/// Maneja el mensaje ROOM USERS.
+///
+/// # Arguments
+///
+/// * `username` - El usuario que pide la lista de usuarios.
+/// * `roomname` - La sala sobre la que se pide la lista de usuarios.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_room_users<W>(username: &str, roomname: &str, hub: &Arc<Mutex<Hub>>, writer: &mut W)
+where
+    W: AsyncWrite + Unpin,
+{
+    let result = {
+        let hub = hub.lock().unwrap();
+        hub.room_usernames(roomname, username)
+    };
+
+    match result {
+        Ok(usernames) => {
+            let msg = TypeS2C::RoomUserList {
+                roomname: roomname.to_string(),
+                usernames,
+            };
+
+            send_msg(writer, msg).await;
+        }
+
+        Err(e) => {
+            send_msg(writer, new_response(TypeC2S::RoomUsers, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -463,6 +497,9 @@ where
         }
         ClientMessage::LeaveRoom { roomname } => {
             handle_leave_room(username, &roomname, hub, writer).await;
+        }
+        ClientMessage::RoomUsers { roomname } => {
+            handle_room_users(username, roomname.as_str(), hub, writer).await;
         }
         _ => return,
     }
