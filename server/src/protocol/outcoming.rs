@@ -36,7 +36,7 @@ pub enum TypeS2C {
     },
     RoomUserList {
         roomname: String,
-        usernames: Vec<String>,
+        usernames: HashMap<String, Status>,
     },
     RoomTextFrom {
         roomname: String,
@@ -81,7 +81,7 @@ impl TypeS2C {
         Self::JoinedRoom { username, roomname }
     }
 
-    pub fn room_user_list_message(roomname: String, usernames: Vec<String>) -> Self {
+    pub fn room_user_list_message(roomname: String, usernames: HashMap<String, Status>) -> Self {
         Self::RoomUserList {
             roomname,
             usernames,
