@@ -281,7 +281,7 @@ impl Hub {
         inviter: &str,
         roomname: &str,
         usernames: Vec<String>,
-    ) -> Result<bool, (MessageResult, String)> {
+    ) -> Result<Vec<String>, (MessageResult, String)> {
         if !self.rooms.contains_key(roomname) {
             return Err((MessageResult::NoSuchRoom, roomname.to_string()));
         }
@@ -298,10 +298,17 @@ impl Hub {
             return Err((MessageResult::NotJoined, roomname.to_string()));
         }
 
+        let mut guests: Vec<String> = Vec::new();
+
         for user in usernames {
+            if room.is_invited(user.as_str()) || room.is_member(user.as_str()) {
+                continue;
+            }
+
             room.invitate(user.as_str());
+            guests.push(user);
         }
-        Ok(true)
+        Ok(guests)
     }
 
     /// Agrega a una lista de clientes a la lista de invitados de la sala.
@@ -630,7 +637,7 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invite("alice", "Room 1", guests).unwrap());
+        assert!(!hub.invite("alice", "Room 1", guests).unwrap().is_empty());
     }
 
     #[test]
@@ -679,7 +686,11 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invite("alice", "Room 1", guests.clone()).unwrap());
+        assert!(
+            !hub.invite("alice", "Room 1", guests.clone())
+                .unwrap()
+                .is_empty()
+        );
         for client in guests {
             assert!(hub.be_member_of("Room 1", client.as_str()).unwrap());
         }
@@ -882,7 +893,11 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invite("alice", "Room 1", guests.clone()).unwrap());
+        assert!(
+            !hub.invite("alice", "Room 1", guests.clone())
+                .unwrap()
+                .is_empty()
+        );
         for client in guests {
             assert!(hub.be_member_of("Room 1", client.as_str()).unwrap());
         }

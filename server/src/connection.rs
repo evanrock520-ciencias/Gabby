@@ -357,14 +357,14 @@ async fn handle_invite<W>(
     };
 
     match result {
-        Ok(_) => {
+        Ok(truly_invited) => {
             let hub = hub.lock().unwrap();
             let msg = &TypeS2C::Invitation {
                 username: username.to_string(),
                 roomname: roomname.to_string(),
             };
 
-            hub.send_to_members(msg, username, guests).unwrap();
+            hub.send_to_members(msg, username, truly_invited).unwrap();
         }
 
         Err((err, extra)) => {
