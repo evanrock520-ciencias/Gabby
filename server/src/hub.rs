@@ -280,21 +280,22 @@ impl Hub {
         &mut self,
         roomname: &str,
         usernames: Vec<String>,
-    ) -> Result<bool, MessageResult> {
+    ) -> Result<bool, (MessageResult, String)> {
+        if !self.rooms.contains_key(roomname) {
+            return Err((MessageResult::NoSuchRoom, roomname.to_string()));
+        }
+
         for user in &usernames {
             if !self.is_user(user) {
-                return Err(MessageResult::NoSuchUser);
+                return Err((MessageResult::NoSuchUser, user.clone()));
             }
         }
 
-        let Some(room) = self.rooms.get_mut(roomname) else {
-            return Err(MessageResult::NoSuchRoom);
-        };
-
+        let room = self.rooms.get_mut(roomname).unwrap();
         for user in usernames {
             room.invitate(user.as_str());
         }
-        return Ok(true);
+        Ok(true)
     }
 
     /// Agrega a una lista de clientes a la lista de invitados de la sala.
