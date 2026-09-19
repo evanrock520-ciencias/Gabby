@@ -31,6 +31,19 @@ impl Client {
         self.memberships.insert(roomname.to_string());
     }
 
+    /// Elimina una sala a las membresias del Cliente.
+    ///
+    /// # Arguments
+    ///
+    /// * `roomname` - El nombre de la sala.
+    pub fn remove_membership(&mut self, roomname: &str) {
+        self.memberships.remove(roomname);
+    }
+
+    pub fn memberships(&self) -> &HashSet<String> {
+        &self.memberships
+    }
+
     /// Agrega una sala a las membresias del Cliente.
     ///
     /// # Arguments
