@@ -142,6 +142,31 @@ impl Hub {
         Ok(true)
     }
 
+    /// Envía un mensaje a una lista de clientes.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - El mensaje a propagar.
+    /// * `sender` - El usuario que manda el mensaje.
+    /// * `receivers` - Los usuarios que reciben el mensaje.
+    ///
+    pub fn send_to_members(
+        &self,
+        msg: &TypeS2C,
+        sender: &str,
+        receivers: Vec<String>,
+    ) -> Result<bool, MessageResult> {
+        for receiver in receivers {
+            let result = self.send_to(msg, sender, receiver.as_str());
+            match result {
+                Ok(_) => continue,
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(true)
+    }
+
     /// Registra a un usuario al Hub.
     ///
     /// # Arguments
