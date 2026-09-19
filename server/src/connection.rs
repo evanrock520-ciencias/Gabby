@@ -387,6 +387,46 @@ where
     }
 }
 
+/// Maneja el mensaje LEAVE ROOM.
+///
+/// # Arguments
+///
+/// * `username` - El usuario que quiere abandonar la sala.
+/// * `roomname` - La sala que quiere abandonar.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_leave_room<W>(username: &str, roomname: &str, hub: &Arc<Mutex<Hub>>, writer: &mut W)
+where
+    W: AsyncWrite + Unpin,
+{
+    let result = {
+        let mut hub = hub.lock().unwrap();
+        hub.leave_room(roomname, username)
+    };
+
+    match result {
+        Ok(_) => {
+            send_msg(
+                writer,
+                new_response(TypeC2S::LeaveRoom, MessageResult::Success, None),
+            )
+            .await;
+
+            let msg = &TypeS2C::LeftRoom {
+                username: username.to_string(),
+                roomname: roomname.to_string(),
+            };
+            let hub = hub.lock().unwrap();
+            hub.to_room(msg, roomname, username).unwrap();
+        }
+
+        Err(e) => {
+            send_msg(writer, new_response(TypeC2S::LeaveRoom, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -420,6 +460,9 @@ where
         }
         ClientMessage::JoinRoom { roomname } => {
             handle_join_room(username, &roomname, hub, writer).await;
+        }
+        ClientMessage::LeaveRoom { roomname } => {
+            handle_leave_room(username, &roomname, hub, writer).await;
         }
         _ => return,
     }
