@@ -871,4 +871,44 @@ mod test {
         assert!(hub.leave_room("Room 1", "alice").unwrap());
         assert!(!hub.is_room("Room 1"));
     }
+
+    #[test]
+    fn test_disconnect() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _rx_alice) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, mut rx_bob) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        hub.invite("Room 1", vec!["bob".to_string()]).unwrap();
+        hub.be_member_of("Room 1", "bob").unwrap();
+
+        hub.disconnect("alice");
+
+        let left_msg = rx_bob.try_recv().unwrap();
+        assert_eq!(
+            left_msg,
+            TypeS2C::LeftRoom {
+                username: "alice".into(),
+                roomname: "Room 1".into(),
+            }
+        );
+
+        let disc_msg = rx_bob.try_recv().unwrap();
+        assert_eq!(
+            disc_msg,
+            TypeS2C::Disconnected {
+                username: "alice".into(),
+            }
+        );
+
+        assert!(!hub.is_user("alice"));
+        hub.disconnect("bob");
+        assert!(!hub.is_room("Room 1"));
+    }
 }
