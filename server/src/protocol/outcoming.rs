@@ -1,4 +1,6 @@
-use crate::protocol::{incoming::TypeC2S, result::Result as ProtocolResult, status::Status};
+use std::collections::HashMap;
+
+use crate::protocol::{incoming::TypeC2S, result::MessageResult as ProtocolResult, status::Status};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -18,7 +20,7 @@ pub enum TypeS2C {
         status: Status,
     },
     UserList {
-        usernames: Vec<String>,
+        usernames: HashMap<String, Status>,
     },
     TextFrom {
         username: String,
@@ -34,7 +36,7 @@ pub enum TypeS2C {
     },
     RoomUserList {
         roomname: String,
-        usernames: Vec<String>,
+        usernames: HashMap<String, Status>,
     },
     RoomTextFrom {
         roomname: String,
@@ -63,7 +65,7 @@ impl TypeS2C {
         Self::NewStatus { username, status }
     }
 
-    pub fn user_list_message(usernames: Vec<String>) -> Self {
+    pub fn user_list_message(usernames: HashMap<String, Status>) -> Self {
         Self::UserList { usernames }
     }
 
@@ -79,7 +81,7 @@ impl TypeS2C {
         Self::JoinedRoom { username, roomname }
     }
 
-    pub fn room_user_list_message(roomname: String, usernames: Vec<String>) -> Self {
+    pub fn room_user_list_message(roomname: String, usernames: HashMap<String, Status>) -> Self {
         Self::RoomUserList {
             roomname,
             usernames,
