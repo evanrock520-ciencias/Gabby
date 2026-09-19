@@ -47,8 +47,10 @@ where
                 match result {
                     Ok(0) => break,
                     Ok(_) => {
-                      // TODO: Un match para emparejar el tipo de mensaje con un handle
                       match serializer::deserialize(&line) {
+                        Ok(ClientMessage::Disconnect) => {
+                            break;
+                        }
                         Ok(msg) => {
                             println!("Valid message: {}", line.trim());
                             route_msg(msg, &_username, &hub, &mut writer).await;
@@ -68,6 +70,12 @@ where
 
             else => break,
         }
+    }
+
+    {
+        let mut hub = hub.lock().unwrap();
+        hub.disconnect(&_username);
+        println!("The user {} disconnected.", _username);
     }
 
     Ok(())
