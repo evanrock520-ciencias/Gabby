@@ -34,8 +34,18 @@ where
     let (tx, mut rx) = mpsc::unbounded_channel::<TypeS2C>();
 
     let _username = match identify(&mut reader, &mut writer, tx, &hub).await {
-        Some(name) => name,
-        None => return Ok(()),
+        Ok(name) => name,
+        Err(MessageResult::NotIdentified) => {
+            send_msg(
+                &mut writer,
+                new_response(TypeC2S::Invalid, MessageResult::NotIdentified, None),
+            )
+            .await;
+            return Ok(());
+        }
+        Err(_) => {
+            return Ok(());
+        }
     };
 
     let mut line = String::new();
@@ -56,9 +66,8 @@ where
                             route_msg(msg, &_username, &hub, &mut writer).await;
                         },
                         Err(_) => {
-                             eprintln!("Unexpected message format {}", line.trim());
-                            // TODO: Mandar mensaje inválido
-                             break;
+                            send_msg(&mut writer, new_response(TypeC2S::Invalid, MessageResult::Invalid, None)).await;
+                            break;
                         }
                       }
                     }
@@ -101,20 +110,25 @@ async fn identify<R, W>(
     writer: &mut W,
     tx: mpsc::UnboundedSender<TypeS2C>,
     _hub: &Arc<Mutex<Hub>>,
-) -> Option<String>
+) -> Result<String, MessageResult>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
     let mut line: String = String::new();
-    reader.read_line(&mut line).await.ok()?;
+    if reader.read_line(&mut line).await.is_err() {
+        return Err(MessageResult::NotIdentified);
+    }
 
-    let msg: ClientMessage = serializer::deserialize(line.trim()).ok()?;
+    let Ok(msg) = serializer::deserialize(line.trim()) else {
+        return Err(MessageResult::NotIdentified);
+    };
 
     let username: String = match msg {
         ClientMessage::Identify { username } => username,
-        _ => return None,
+        _ => return Err(MessageResult::NotIdentified),
     };
+
     let _client: Client = Client::new(username.clone(), tx);
 
     let register_result = {
@@ -153,16 +167,16 @@ where
                 );
             }
 
-            Some(username)
+            Ok(username)
         }
         Err(e) => {
             println!("The username {} is already used.", username);
             send_msg(
                 writer,
-                new_response(TypeC2S::Identify, e, Some(username.clone())),
+                new_response(TypeC2S::Identify, e.clone(), Some(username.clone())),
             )
             .await;
-            None
+            Err(e)
         }
     }
 }
