@@ -57,13 +57,20 @@ where
                 match result {
                     Ok(0) => break,
                     Ok(_) => {
-                      match serializer::deserialize(&line) {
+                      let trimmed = line.trim();
+                      if trimmed.is_empty() {
+                          continue;
+                      }
+
+                      match serializer::deserialize(trimmed) {
                         Ok(ClientMessage::Disconnect) => {
                             break;
                         }
                         Ok(msg) => {
-                            println!("Valid message: {}", line.trim());
-                            route_msg(msg, &_username, &hub, &mut writer).await;
+                            if let Err(err) = route_msg(msg, &_username, &hub, &mut writer).await {
+                                send_msg(&mut writer, new_response(TypeC2S::Invalid, err, None)).await;
+                                break;
+                            }
                         },
                         Err(_) => {
                             send_msg(&mut writer, new_response(TypeC2S::Invalid, MessageResult::Invalid, None)).await;
@@ -128,6 +135,15 @@ where
         ClientMessage::Identify { username } => username,
         _ => return Err(MessageResult::NotIdentified),
     };
+
+    if username.is_empty() || username.len() > 8 {
+        send_msg(
+            writer,
+            new_response(TypeC2S::Invalid, MessageResult::Invalid, None),
+        )
+        .await;
+        return Err(MessageResult::Invalid);
+    }
 
     let _client: Client = Client::new(username.clone(), tx);
 
@@ -261,9 +277,14 @@ async fn handle_create_room<W>(
     roomname: &str,
     hub: &Arc<Mutex<Hub>>,
     writer: &mut W,
-) where
+) -> Result<(), MessageResult>
+where
     W: AsyncWrite + Unpin,
 {
+    if roomname.is_empty() || roomname.len() > 16 {
+        return Err(MessageResult::Invalid);
+    }
+
     let result = {
         let mut hub = hub.lock().unwrap();
         hub.register_room(roomname, username)
@@ -289,6 +310,7 @@ async fn handle_create_room<W>(
             .await;
         }
     }
+    Ok(())
 }
 
 /// Maneja el mensaje TEXT.
@@ -556,7 +578,12 @@ async fn handle_room_text<W>(
 /// * `writer` - Escritor del socket del cliente.
 ///
 ///
-async fn route_msg<W>(msg: ClientMessage, username: &str, hub: &Arc<Mutex<Hub>>, writer: &mut W)
+async fn route_msg<W>(
+    msg: ClientMessage,
+    username: &str,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut W,
+) -> Result<(), MessageResult>
 where
     W: AsyncWrite + Unpin,
 {
@@ -565,7 +592,7 @@ where
         ClientMessage::Status { status } => handle_status(username, status, hub).await,
         ClientMessage::PublicText { text } => handle_public_text(username, &text, hub).await,
         ClientMessage::NewRoom { roomname } => {
-            handle_create_room(username, &roomname, hub, writer).await
+            handle_create_room(username, &roomname, hub, writer).await?;
         }
         ClientMessage::Text {
             username: receiver,
@@ -589,8 +616,9 @@ where
         ClientMessage::RoomText { roomname, text } => {
             handle_room_text(username, &roomname, &text, hub, writer).await;
         }
-        _ => return,
+        _ => return Ok(()),
     }
+    Ok(())
 }
 
 async fn send_msg<W>(writer: &mut W, msg: TypeS2C)
