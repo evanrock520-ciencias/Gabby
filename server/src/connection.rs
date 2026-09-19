@@ -353,7 +353,7 @@ async fn handle_invite<W>(
 {
     let result = {
         let mut hub = hub.lock().unwrap();
-        hub.invite(roomname, guests.clone())
+        hub.invite(username, roomname, guests.clone())
     };
 
     match result {

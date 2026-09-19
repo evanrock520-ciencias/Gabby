@@ -278,6 +278,7 @@ impl Hub {
     ///
     pub fn invite(
         &mut self,
+        inviter: &str,
         roomname: &str,
         usernames: Vec<String>,
     ) -> Result<bool, (MessageResult, String)> {
@@ -292,6 +293,11 @@ impl Hub {
         }
 
         let room = self.rooms.get_mut(roomname).unwrap();
+
+        if !room.is_member(inviter) {
+            return Err((MessageResult::NotJoined, roomname.to_string()));
+        }
+
         for user in usernames {
             room.invitate(user.as_str());
         }
@@ -624,7 +630,33 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invite("Room 1", guests).unwrap());
+        assert!(hub.invite("alice", "Room 1", guests).unwrap());
+    }
+
+    #[test]
+    fn test_invite_to_rooms_if_not_joined() {
+        let mut hub = Hub::new();
+
+        let (tx_alice, _) = mpsc::unbounded_channel();
+        let alice = Client::new("alice".to_string(), tx_alice);
+
+        hub.register(alice).unwrap();
+        hub.register_room("Room 1", "alice".into()).unwrap();
+
+        let (tx_bob, _) = mpsc::unbounded_channel();
+        let bob = Client::new("bob".to_string(), tx_bob);
+        hub.register(bob).unwrap();
+
+        let (tx_charlie, _) = mpsc::unbounded_channel();
+        let charlie = Client::new("charlie".to_string(), tx_charlie);
+        hub.register(charlie).unwrap();
+
+        let guests = vec!["bob".to_string()];
+
+        assert_eq!(
+            MessageResult::NotJoined,
+            hub.invite("charlie", "Room 1", guests).unwrap_err().0
+        );
     }
 
     #[test]
@@ -647,7 +679,7 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invite("Room 1", guests.clone()).unwrap());
+        assert!(hub.invite("alice", "Room 1", guests.clone()).unwrap());
         for client in guests {
             assert!(hub.be_member_of("Room 1", client.as_str()).unwrap());
         }
@@ -701,7 +733,7 @@ mod test {
 
         let guests = vec!["bob".to_string()];
 
-        hub.invite("Room 1", guests.clone()).unwrap();
+        hub.invite("alice", "Room 1", guests.clone()).unwrap();
         for client in guests {
             hub.be_member_of("Room 1", client.as_str()).unwrap();
         }
@@ -782,7 +814,7 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        hub.invite("Room 1", guests.clone()).unwrap();
+        hub.invite("alice", "Room 1", guests.clone()).unwrap();
         for client in guests.clone() {
             hub.be_member_of("Room 1", client.as_str()).unwrap();
         }
@@ -850,7 +882,7 @@ mod test {
 
         let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invite("Room 1", guests.clone()).unwrap());
+        assert!(hub.invite("alice", "Room 1", guests.clone()).unwrap());
         for client in guests {
             assert!(hub.be_member_of("Room 1", client.as_str()).unwrap());
         }
@@ -886,7 +918,8 @@ mod test {
         let bob = Client::new("bob".to_string(), tx_bob);
         hub.register(bob).unwrap();
 
-        hub.invite("Room 1", vec!["bob".to_string()]).unwrap();
+        hub.invite("alice", "Room 1", vec!["bob".to_string()])
+            .unwrap();
         hub.be_member_of("Room 1", "bob").unwrap();
 
         hub.disconnect("alice");
