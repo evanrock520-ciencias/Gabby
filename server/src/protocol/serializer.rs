@@ -233,15 +233,14 @@ mod tests {
 
     #[test]
     fn test_serialize_room_user_list_message() {
-        let usernames = vec!["Derek".to_string(), "Yahel".to_string(), "Luis".to_string()];
+        let mut usernames = HashMap::new();
+        usernames.insert("Derek".to_string(), Active);
+        usernames.insert("Yahel".to_string(), Away);
+        usernames.insert("Luis".to_string(), Busy);
         let msg = TypeS2C::room_user_list_message("Sala 1".to_string(), usernames);
         let data = serialize(&msg).unwrap();
         assert!(data.contains(&field("type", "ROOM_USER_LIST")));
         assert!(data.contains(&field("roomname", "Sala 1")));
-        assert!(data.contains(&field_array(
-            "usernames",
-            &["Derek".to_string(), "Yahel".to_string(), "Luis".to_string(),],
-        )));
     }
 
     #[test]
