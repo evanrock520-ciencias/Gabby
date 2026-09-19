@@ -344,6 +344,49 @@ async fn handle_invite<W>(
     }
 }
 
+/// Maneja el mensaje JOIN ROOM.
+///
+/// # Arguments
+///
+/// * `username` - El usuario que quiere unirse.
+/// * `roomname` - La sala a unirse.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_join_room<W>(username: &str, roomname: &str, hub: &Arc<Mutex<Hub>>, writer: &mut W)
+where
+    W: AsyncWrite + Unpin,
+{
+    let result = {
+        let mut hub = hub.lock().unwrap();
+        hub.be_member_of(roomname, username)
+    };
+
+    match result {
+        Ok(_) => {
+            send_msg(
+                writer,
+                new_response(TypeC2S::JoinRoom, MessageResult::Success, None),
+            )
+            .await;
+
+            let msg = &TypeS2C::JoinedRoom {
+                username: username.to_string(),
+                roomname: roomname.to_string(),
+            };
+
+            {
+                let hub = hub.lock().unwrap();
+                hub.to_room(msg, roomname, username).unwrap();
+            }
+        }
+
+        Err(e) => {
+            send_msg(writer, new_response(TypeC2S::JoinRoom, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -374,6 +417,9 @@ where
             usernames,
         } => {
             handle_invite(username, &roomname, usernames, hub, writer).await;
+        }
+        ClientMessage::JoinRoom { roomname } => {
+            handle_join_room(username, &roomname, hub, writer).await;
         }
         _ => return,
     }
