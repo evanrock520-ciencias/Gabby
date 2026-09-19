@@ -16,6 +16,7 @@ pub enum TypeC2S {
     RoomText,
     LeaveRoom,
     Disconnect,
+    Invalid,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
