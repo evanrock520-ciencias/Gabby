@@ -5,6 +5,7 @@ use tokio::{
     sync::mpsc,
 };
 
+use crate::protocol::status::Status;
 use crate::{
     client::Client,
     hub::Hub,
@@ -16,7 +17,6 @@ use crate::{
         serializer,
     },
 };
-use crate::{hub, protocol::status::Status};
 
 /// Maneja la conexión del cliente.
 ///
@@ -57,6 +57,8 @@ where
                         },
                         Err(_) => {
                              eprintln!("Unexpected message format {}", line.trim());
+                            // TODO: Mandar mensaje inválido
+                             break;
                         }
                       }
                     }
@@ -125,7 +127,11 @@ where
             println!("The username {} was registered.", username);
             send_msg(
                 writer,
-                new_response(TypeC2S::Identify, MessageResult::Success, None),
+                new_response(
+                    TypeC2S::Identify,
+                    MessageResult::Success,
+                    Some(username.clone()),
+                ),
             )
             .await;
 
@@ -151,7 +157,11 @@ where
         }
         Err(e) => {
             println!("The username {} is already used.", username);
-            send_msg(writer, new_response(TypeC2S::Identify, e, None)).await;
+            send_msg(
+                writer,
+                new_response(TypeC2S::Identify, e, Some(username.clone())),
+            )
+            .await;
             None
         }
     }
@@ -249,12 +259,20 @@ async fn handle_create_room<W>(
         Ok(_) => {
             send_msg(
                 writer,
-                new_response(TypeC2S::NewRoom, MessageResult::Success, None),
+                new_response(
+                    TypeC2S::NewRoom,
+                    MessageResult::Success,
+                    Some(roomname.to_string()),
+                ),
             )
             .await;
         }
         Err(e) => {
-            send_msg(writer, new_response(TypeC2S::NewRoom, e, None)).await;
+            send_msg(
+                writer,
+                new_response(TypeC2S::NewRoom, e, Some(roomname.to_string())),
+            )
+            .await;
         }
     }
 }
@@ -289,16 +307,13 @@ async fn handle_text<W>(
     };
 
     match result {
-        Ok(_) => {
+        Ok(_) => {}
+        Err(e) => {
             send_msg(
                 writer,
-                new_response(TypeC2S::Text, MessageResult::Success, None),
+                new_response(TypeC2S::Text, e, Some(receiver.to_string())),
             )
             .await;
-        }
-        Err(e) => {
-            // TODO: Manejar ambos tipos de errores, por el extra
-            send_msg(writer, new_response(TypeC2S::Text, e, None)).await;
         }
     }
 }
@@ -329,25 +344,17 @@ async fn handle_invite<W>(
 
     match result {
         Ok(_) => {
-            send_msg(
-                writer,
-                new_response(TypeC2S::Invite, MessageResult::Success, None),
-            )
-            .await;
+            let hub = hub.lock().unwrap();
+            let msg = &TypeS2C::Invitation {
+                username: username.to_string(),
+                roomname: roomname.to_string(),
+            };
 
-            {
-                let hub = hub.lock().unwrap();
-                let msg = &TypeS2C::Invitation {
-                    username: username.to_string(),
-                    roomname: roomname.to_string(),
-                };
-
-                hub.send_to_members(msg, username, guests).unwrap();
-            }
+            hub.send_to_members(msg, username, guests).unwrap();
         }
 
-        Err(e) => {
-            send_msg(writer, new_response(TypeC2S::Invite, e, None)).await;
+        Err((err, extra)) => {
+            send_msg(writer, new_response(TypeC2S::Invite, err, Some(extra))).await;
         }
     }
 }
@@ -374,7 +381,11 @@ where
         Ok(_) => {
             send_msg(
                 writer,
-                new_response(TypeC2S::JoinRoom, MessageResult::Success, None),
+                new_response(
+                    TypeC2S::JoinRoom,
+                    MessageResult::Success,
+                    Some(roomname.to_string()),
+                ),
             )
             .await;
 
@@ -390,7 +401,11 @@ where
         }
 
         Err(e) => {
-            send_msg(writer, new_response(TypeC2S::JoinRoom, e, None)).await;
+            send_msg(
+                writer,
+                new_response(TypeC2S::JoinRoom, e, Some(roomname.to_string())),
+            )
+            .await;
         }
     }
 }
@@ -415,12 +430,6 @@ where
 
     match result {
         Ok(_) => {
-            send_msg(
-                writer,
-                new_response(TypeC2S::LeaveRoom, MessageResult::Success, None),
-            )
-            .await;
-
             let msg = &TypeS2C::LeftRoom {
                 username: username.to_string(),
                 roomname: roomname.to_string(),
@@ -430,7 +439,11 @@ where
         }
 
         Err(e) => {
-            send_msg(writer, new_response(TypeC2S::LeaveRoom, e, None)).await;
+            send_msg(
+                writer,
+                new_response(TypeC2S::LeaveRoom, e, Some(roomname.to_string())),
+            )
+            .await;
         }
     }
 }
@@ -464,7 +477,11 @@ where
         }
 
         Err(e) => {
-            send_msg(writer, new_response(TypeC2S::RoomUsers, e, None)).await;
+            send_msg(
+                writer,
+                new_response(TypeC2S::RoomUsers, e, Some(roomname.to_string())),
+            )
+            .await;
         }
     }
 }
@@ -506,7 +523,11 @@ async fn handle_room_text<W>(
     match result {
         Ok(_) => {}
         Err(e) => {
-            send_msg(writer, new_response(TypeC2S::RoomText, e, None)).await;
+            send_msg(
+                writer,
+                new_response(TypeC2S::RoomText, e, Some(roomname.to_string())),
+            )
+            .await;
         }
     }
 }
