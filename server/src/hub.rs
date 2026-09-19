@@ -227,10 +227,10 @@ impl Hub {
     /// Retorna [`MessageResult::NoSuchRoom`] si no existe la sala.
     /// Retorna [`MessageResult::NoSuchUser`] si al menos uno de los usuarios no existe.
     ///
-    pub fn invitate(
+    pub fn invite(
         &mut self,
         roomname: &str,
-        usernames: Vec<&str>,
+        usernames: Vec<String>,
     ) -> Result<bool, MessageResult> {
         for user in &usernames {
             if !self.is_user(user) {
@@ -243,7 +243,7 @@ impl Hub {
         };
 
         for user in usernames {
-            room.invitate(user);
+            room.invitate(user.as_str());
         }
         return Ok(true);
     }
@@ -552,7 +552,7 @@ mod test {
     }
 
     #[test]
-    fn test_invitate_to_rooms() {
+    fn test_invite_to_rooms() {
         let mut hub = Hub::new();
 
         let (tx_alice, _) = mpsc::unbounded_channel();
@@ -569,9 +569,9 @@ mod test {
         let charlie = Client::new("charlie".to_string(), tx_charlie);
         hub.register(charlie).unwrap();
 
-        let guests = vec!["bob", "charlie"];
+        let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invitate("Room 1", guests).unwrap());
+        assert!(hub.invite("Room 1", guests).unwrap());
     }
 
     #[test]
@@ -592,11 +592,11 @@ mod test {
         let charlie = Client::new("charlie".to_string(), tx_charlie);
         hub.register(charlie).unwrap();
 
-        let guests = vec!["bob", "charlie"];
+        let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invitate("Room 1", guests.clone()).unwrap());
+        assert!(hub.invite("Room 1", guests.clone()).unwrap());
         for client in guests {
-            assert!(hub.be_member_of("Room 1", client).unwrap());
+            assert!(hub.be_member_of("Room 1", client.as_str()).unwrap());
         }
     }
 
@@ -646,11 +646,11 @@ mod test {
         let charlie = Client::new("charlie".to_string(), tx_charlie);
         hub.register(charlie).unwrap();
 
-        let guests = vec!["bob"];
+        let guests = vec!["bob".to_string()];
 
-        hub.invitate("Room 1", guests.clone()).unwrap();
+        hub.invite("Room 1", guests.clone()).unwrap();
         for client in guests {
-            hub.be_member_of("Room 1", client).unwrap();
+            hub.be_member_of("Room 1", client.as_str()).unwrap();
         }
 
         let msg = TypeS2C::NewStatus {
@@ -727,17 +727,17 @@ mod test {
         let diane = Client::new("diane".to_string(), tx_diane);
         hub.register(diane).unwrap();
 
-        let guests = vec!["bob", "charlie"];
+        let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        hub.invitate("Room 1", guests.clone()).unwrap();
+        hub.invite("Room 1", guests.clone()).unwrap();
         for client in guests.clone() {
-            hub.be_member_of("Room 1", client).unwrap();
+            hub.be_member_of("Room 1", client.as_str()).unwrap();
         }
 
         let room_usernames = hub.room_usernames("Room 1", "alice").unwrap();
 
         for client in guests {
-            assert!(room_usernames.contains_key(client));
+            assert!(room_usernames.contains_key(client.as_str()));
         }
     }
 
@@ -795,11 +795,11 @@ mod test {
         let charlie = Client::new("charlie".to_string(), tx_charlie);
         hub.register(charlie).unwrap();
 
-        let guests = vec!["bob", "charlie"];
+        let guests = vec!["bob".to_string(), "charlie".to_string()];
 
-        assert!(hub.invitate("Room 1", guests.clone()).unwrap());
+        assert!(hub.invite("Room 1", guests.clone()).unwrap());
         for client in guests {
-            assert!(hub.be_member_of("Room 1", client).unwrap());
+            assert!(hub.be_member_of("Room 1", client.as_str()).unwrap());
         }
 
         assert!(hub.leave_room("Room 1", "bob").unwrap());
