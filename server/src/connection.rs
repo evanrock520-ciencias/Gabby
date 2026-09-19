@@ -461,6 +461,48 @@ where
     }
 }
 
+/// Maneja el mensaje ROOM TEXT.
+///
+/// # Arguments
+///
+/// * `username` - El usuario que manda el mensaje.
+/// * `roomname` - La sala a la que manda el mensaje.
+/// * `text` - El texto del mensaje que se manda.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_room_text<W>(
+    username: &str,
+    roomname: &str,
+    text: &str,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut W,
+) where
+    W: AsyncWrite + Unpin,
+{
+    let msg = &TypeS2C::RoomTextFrom {
+        roomname: roomname.to_string(),
+        username: username.to_string(),
+        text: text.to_string(),
+    };
+
+    let result = {
+        let hub = hub.lock().unwrap();
+        if !hub.is_member_of(username, roomname) {
+            Err(MessageResult::NotJoined)
+        } else {
+            hub.to_room(msg, roomname, username)
+        }
+    };
+
+    match result {
+        Ok(_) => {}
+        Err(e) => {
+            send_msg(writer, new_response(TypeC2S::RoomText, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -500,6 +542,9 @@ where
         }
         ClientMessage::RoomUsers { roomname } => {
             handle_room_users(username, roomname.as_str(), hub, writer).await;
+        }
+        ClientMessage::RoomText { roomname, text } => {
+            handle_room_text(username, &roomname, &text, hub, writer).await;
         }
         _ => return,
     }
