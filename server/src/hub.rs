@@ -202,6 +202,30 @@ impl Hub {
         self.clients.remove(username);
     }
 
+    /// Desconecta a un cliente del Hub.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - El nombre de usuario del cliente a desconectar.
+    ///
+    pub fn disconnect(&mut self, username: &str) {
+        if let Some(user) = self.clients.remove(username) {
+            for roomname in user.memberships() {
+                let left_msg = TypeS2C::LeftRoom {
+                    username: username.to_string(),
+                    roomname: roomname.clone(),
+                };
+                let _ = self.to_room(&left_msg, roomname, username);
+                let _ = self.leave_room(roomname, username);
+            }
+        }
+
+        let disconnect_msg = TypeS2C::Disconnected {
+            username: username.to_string(),
+        };
+        self.broadcast(&disconnect_msg, username);
+    }
+
     /// Registra una sala y agrega a su creador como miembro.
     ///
     /// # Arguments
@@ -404,6 +428,9 @@ impl Hub {
         }
 
         room.remove_member(username);
+        if let Some(client) = self.clients.get_mut(username) {
+            client.remove_membership(roomname);
+        }
 
         if room.is_empty() {
             self.rooms.remove(roomname);
