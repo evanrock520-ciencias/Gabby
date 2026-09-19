@@ -5,7 +5,6 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::protocol::status::Status;
 use crate::{
     client::Client,
     hub::Hub,
@@ -17,6 +16,7 @@ use crate::{
         serializer,
     },
 };
+use crate::{hub, protocol::status::Status};
 
 /// Maneja la conexión del cliente.
 ///
@@ -295,6 +295,55 @@ async fn handle_text<W>(
     }
 }
 
+/// Maneja el mensaje INVITE.
+///
+/// # Arguments
+///
+/// * `username` - El nombre de usuario del cliente que manda el mensaje.
+/// * `roomname` - La sala a la que se invita el cliente.
+/// * `guests` - La lista de clientes invitados.
+/// * `hub` - Referencia compartida al hub central del servidor.
+/// * `writer` - Escritor del socket del cliente.
+///
+async fn handle_invite<W>(
+    username: &str,
+    roomname: &str,
+    guests: Vec<String>,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut W,
+) where
+    W: AsyncWrite + Unpin,
+{
+    let result = {
+        let mut hub = hub.lock().unwrap();
+        hub.invite(roomname, guests.clone())
+    };
+
+    match result {
+        Ok(_) => {
+            send_msg(
+                writer,
+                new_response(TypeC2S::Invite, MessageResult::Success, None),
+            )
+            .await;
+
+            {
+                let hub = hub.lock().unwrap();
+                let msg = &TypeS2C::Invitation {
+                    username: username.to_string(),
+                    roomname: roomname.to_string(),
+                };
+
+                hub.send_to_members(msg, username, guests).unwrap();
+            }
+        }
+
+        Err(e) => {
+            send_msg(writer, new_response(TypeC2S::Invite, e, None)).await;
+        }
+    }
+}
+
 /// Enruta los mensajes a su handler correspondiente.
 ///
 /// # Arguments
@@ -320,6 +369,12 @@ where
             username: receiver,
             text,
         } => handle_text(username, &receiver, &text, hub, writer).await,
+        ClientMessage::Invite {
+            roomname,
+            usernames,
+        } => {
+            handle_invite(username, &roomname, usernames, hub, writer).await;
+        }
         _ => return,
     }
 }
