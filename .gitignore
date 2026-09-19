@@ -6,3 +6,12 @@ server/target
 
 # Go
 client/bin/
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz

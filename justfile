@@ -48,7 +48,7 @@ clean-server:
 clean: clean-client clean-server
 
 docs:
-  cd docs/report && typst compile main.typ
+    cd docs/report && latexmk -pdf -interaction=nonstopmode main.tex
 
 view:
   xdg-open docs/report/main.pdf
