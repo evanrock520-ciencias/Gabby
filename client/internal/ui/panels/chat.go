@@ -93,9 +93,12 @@ func (m *ChatModel) SetSize(width int, height int) {
 	}
 }
 
-func (m *ChatModel) AddMessage(msg domain.ChatMessage) {
-	if m.DisplayedRoom != nil {
-		m.DisplayedRoom.AddMessage(msg)
+func (m *ChatModel) AddMessage(room *domain.Room, msg domain.ChatMessage) {
+	if room == nil {
+		return
+	}
+	room.AddMessage(msg)
+	if m.DisplayedRoom == room {
 		m.refreshMessages()
 	}
 }
@@ -139,10 +142,12 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 
 			var cmd tea.Cmd
 			if text != "" {
-				m.AddMessage(domain.ChatMessage{
-					Username: m.Username,
-					Message:  text,
-				})
+				m.AddMessage(
+					m.DisplayedRoom,
+					domain.ChatMessage{
+						Username: m.Username,
+						Message:  text,
+					})
 
 				cmd = m.sendToRoom(text)
 			}
