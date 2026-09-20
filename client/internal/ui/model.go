@@ -177,7 +177,8 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "q":
 		m.openModal(panels.NewConfirmModal("Leave the Chat", []string{"Yes", "Not"}, func() tea.Msg {
-			return nil
+			discconnect, _ := protocol.DisconnectMessage()
+			return discconnect
 		}, func() tea.Msg {
 			return nil
 		}))
