@@ -3,6 +3,8 @@ package ui
 import (
 	"client/internal/domain"
 	"client/internal/protocol"
+	"client/internal/ui/panels"
+	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -12,12 +14,18 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 	switch msg.Type {
 	case protocol.RESPONSE:
 		return m.routeResponse(msg)
+
 	case protocol.USER_LIST:
 		return m.handleUserList(msg)
+
 	case protocol.NEW_USER:
 		return m.handleNewUser(msg)
+
 	case protocol.NEW_STATUS:
 		return m.handleNewStatus(msg)
+
+	case protocol.INVITATION:
+		return m.handleInvitation(msg)
 	}
 
 	return nil
@@ -54,15 +62,30 @@ func (m *Model) handleNewStatus(msg protocol.ServerMessage) tea.Cmd {
 	return nil
 }
 
+// handleInvitation maneja la llegada de una invitación a una sala.
+func (m *Model) handleInvitation(msg protocol.ServerMessage) tea.Cmd {
+	return m.openModal(panels.NewConfirmModal(fmt.Sprintf("Join the room %s", msg.Roomname), []string{"Join", "Reject"}, func() tea.Msg {
+		join, _ := protocol.JoinRoomMessage(msg.Roomname)
+		return join
+	}, func() tea.Msg {
+		return nil
+	}))
+}
+
 // routeResponse enruta los mensajes del servidor al cliente
 // que sean especificamente una respuesta.
 func (m *Model) routeResponse(msg protocol.ServerMessage) tea.Cmd {
 	switch msg.Operation {
 	case protocol.IDENTIFY:
 		m.handleIdentifyResponse(msg)
+
 	case protocol.NEW_ROOM:
 		m.handleNewRoomResponse(msg)
+
+	case protocol.JOIN_ROOM:
+		m.handleJoinRoomResponse(msg)
 	}
+
 	return nil
 }
 
@@ -87,5 +110,15 @@ func (m *Model) handleNewRoomResponse(msg protocol.ServerMessage) tea.Cmd {
 	}
 
 	// TODO: Quizás añadir notificaciones modales.
+	return nil
+}
+
+// handleJoinRoomResponse Verifica la unión a una sala
+func (m *Model) handleJoinRoomResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.SUCCESS {
+		room := m.session.AddRoom(msg.Extra)
+		m.roomsModel.AddItem(NewRoomItem(room))
+	}
+	m.closeModal()
 	return nil
 }

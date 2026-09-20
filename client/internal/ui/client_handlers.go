@@ -17,6 +17,12 @@ func (m *Model) routeClientMessage(msg protocol.ClientMessage) tea.Cmd {
 
 	case protocol.NEW_ROOM:
 		return m.handleNewRoom(msg)
+
+	case protocol.INVITE:
+		return m.handleInvite(msg)
+
+	case protocol.JOIN_ROOM:
+		return m.handleJoinRoom(msg)
 	}
 	return nil
 }
@@ -34,5 +40,15 @@ func (m *Model) handleStatus(msg protocol.ClientMessage) tea.Cmd {
 
 // handleNewRoom maneja el envío de una nueva sala.
 func (m *Model) handleNewRoom(msg protocol.ClientMessage) tea.Cmd {
+	return m.sendToServer(msg)
+}
+
+// handleInvite maneja el envío de invitaciones.
+func (m *Model) handleInvite(msg protocol.ClientMessage) tea.Cmd {
+	return m.sendToServer(msg)
+}
+
+// handleJoinRoom maneja la unión a salas tras una invitación.
+func (m *Model) handleJoinRoom(msg protocol.ClientMessage) tea.Cmd {
 	return m.sendToServer(msg)
 }

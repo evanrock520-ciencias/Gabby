@@ -207,9 +207,10 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 				}
 			},
 			func(store panels.WizardStore) tea.Msg {
-				// rooms, _ := store.Get("room")
-				// users, _ := store.Get("users")
-				return nil
+				rooms, _ := store.Get("room") // Solo hay un elemento porque viene de un uniselector
+				users, _ := store.Get("users")
+				invite, _ := protocol.InviteMessage(rooms[0], users)
+				return invite
 			},
 		))
 	case "s":
