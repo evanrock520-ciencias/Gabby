@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"client/internal/domain"
-	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -117,9 +116,7 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 			case "e":
 				if m.DisplayedRoom != nil && m.DisplayedRoom.Name != "Global" && !strings.HasPrefix(m.DisplayedRoom.Name, "@") {
 					return m, func() tea.Msg {
-						return messages.LeftRoomMsg{
-							Roomname: m.DisplayedRoom.Name,
-						}
+						return nil
 					}
 				}
 			}

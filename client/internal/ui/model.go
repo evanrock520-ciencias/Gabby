@@ -4,7 +4,6 @@ import (
 	"client/internal/domain"
 	"client/internal/network"
 	"client/internal/protocol"
-	"client/internal/ui/messages"
 	"client/internal/ui/panels"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -187,15 +186,15 @@ func NewModel(session domain.SessionState, conn *network.ConnectionManager) Mode
 	globalRoom := session.AddRoom("Global")
 
 	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) tea.Msg {
-		return messages.EnterDMMsg{Username: value}
+		return nil
 	})
 	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) tea.Msg {
-		return messages.EnterRoomMsg{Roomname: value}
+		return nil
 	})
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
 	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
 	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) tea.Msg {
-		return messages.SetUserMsg{Username: value}
+		return nil
 	}, false)
 	m := Model{
 		focus:       Rooms,
@@ -216,7 +215,7 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "q":
 		m.openModal(panels.NewConfirmModal("Leave the Chat", []string{"Yes", "Not"}, func() tea.Msg {
-			return messages.LeftChat{}
+			return nil
 		}, func() tea.Msg {
 			return nil
 		}))
@@ -228,7 +227,7 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		return m.setFocus(Chat)
 	case "c":
 		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) tea.Msg {
-			return messages.CreateRoomMsg{Roomname: value}
+			return nil
 		}, true))
 	case "i":
 		return m.openModal(panels.NewWizardModal(
@@ -245,16 +244,14 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 				}
 			},
 			func(store panels.WizardStore) tea.Msg {
-				rooms, _ := store.Get("room")
-				users, _ := store.Get("users")
-				return messages.InvitateMsg{Roomname: rooms[0], Users: users}
+				// rooms, _ := store.Get("room")
+				// users, _ := store.Get("users")
+				return nil
 			},
 		))
 	case "s":
 		return func() tea.Msg {
-			return messages.ChangeStatusMsg{
-				Status: m.session.CurrentUser.Status.Next(),
-			}
+			return nil
 		}
 	case "tab":
 		m.setFocus(m.focus.Next())
