@@ -26,7 +26,11 @@ func (m *Model) routeClientMessage(msg protocol.ClientMessage) tea.Cmd {
 
 	case protocol.JOIN_ROOM:
 		return m.handleJoinRoom(msg)
+
+	case protocol.PUBLIC_TEXT:
+		return m.handlePublicText(msg)
 	}
+
 	return nil
 }
 
@@ -53,5 +57,10 @@ func (m *Model) handleInvite(msg protocol.ClientMessage) tea.Cmd {
 
 // handleJoinRoom maneja la unión a salas tras una invitación.
 func (m *Model) handleJoinRoom(msg protocol.ClientMessage) tea.Cmd {
+	return m.sendToServer(msg)
+}
+
+// handlePublicText maneja el envío de mensajes a la sala pública
+func (m *Model) handlePublicText(msg protocol.ClientMessage) tea.Cmd {
 	return m.sendToServer(msg)
 }

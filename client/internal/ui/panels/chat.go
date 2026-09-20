@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"client/internal/domain"
+	"client/internal/protocol"
 	"client/internal/ui/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -113,6 +114,7 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 	case tea.KeyMsg:
 		if !m.TextInput.Focused() {
 			switch msg.String() {
+
 			case "e":
 				if m.DisplayedRoom != nil && m.DisplayedRoom.Name != "Global" && !strings.HasPrefix(m.DisplayedRoom.Name, "@") {
 					return m, func() tea.Msg {
@@ -126,18 +128,27 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 		case tea.KeyEsc:
 			m.TextInput.Blur()
 			return m, nil
+
 		case tea.KeyEnter:
 			if !m.TextInput.Focused() {
 				cmd := m.TextInput.Focus()
 				return m, cmd
 			}
+
 			text := strings.TrimSpace(m.TextInput.Value())
+
+			var cmd tea.Cmd
 			if text != "" {
-				// TODO: Enviar TEXT/PUBLIC_TEXT/ROOM_TEXT al servidor según el room actual
-				// El mensaje se mostrará cuando el servidor lo confirme
+				m.AddMessage(domain.ChatMessage{
+					Username: m.Username,
+					Message:  text,
+				})
+
+				cmd = m.sendToRoom(text)
 			}
 			m.TextInput.SetValue("")
-			return m, nil
+
+			return m, cmd
 		}
 	}
 
@@ -177,4 +188,17 @@ func (m ChatModel) View() string {
 	}
 
 	return boxStyle.Render(header + "\n" + viewportContent + "\n" + messageBarStyle.Render(m.TextInput.View()))
+}
+
+func (m *ChatModel) sendToRoom(text string) tea.Cmd {
+	if m.DisplayedRoom == nil {
+		return nil
+	}
+
+	if m.DisplayedRoom.Name == "Global" {
+		publicText, _ := protocol.PublicTextMessage(text)
+		return func() tea.Msg { return publicText }
+	}
+
+	return nil
 }

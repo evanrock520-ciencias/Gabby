@@ -27,6 +27,9 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 	case protocol.INVITATION:
 		return m.handleInvitation(msg)
 
+	case protocol.PUBLIC_TEXT_FROM:
+		return m.handlePublicTextFrom(msg)
+
 	case protocol.DISCONNECTED:
 		return m.handleDisconnected(msg)
 	}
@@ -73,6 +76,12 @@ func (m *Model) handleInvitation(msg protocol.ServerMessage) tea.Cmd {
 	}, func() tea.Msg {
 		return nil
 	}))
+}
+
+func (m *Model) handlePublicTextFrom(msg protocol.ServerMessage) tea.Cmd {
+	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
+	m.chatModel.AddMessage(chatMsg)
+	return nil
 }
 
 // handleDisconnected maneja la desconexión de algún usuario del servidor.
