@@ -91,6 +91,7 @@ func (m *ChatModel) SetSize(width int, height int) {
 	} else {
 		m.Viewport.Width = viewportWidth
 		m.Viewport.Height = viewportHeight
+		m.refreshMessages()
 	}
 }
 
