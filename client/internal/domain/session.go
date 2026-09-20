@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 type SessionState struct {
 	Users       []User
 	Rooms       map[string]*Room
@@ -39,6 +41,15 @@ func (s *SessionState) GetRoom(name string) (*Room, bool) {
 func (s *SessionState) RemoveRoom(name string) {
 	if s.Rooms != nil {
 		delete(s.Rooms, name)
+	}
+}
+
+func (s *SessionState) RemoveUser(username string) {
+	i := slices.IndexFunc(s.Users, func(u User) bool {
+		return u.Username == username
+	})
+	if i != -1 {
+		s.Users = slices.Delete(s.Users, i, i+1)
 	}
 }
 
