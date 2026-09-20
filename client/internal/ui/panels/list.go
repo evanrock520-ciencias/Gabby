@@ -128,6 +128,15 @@ func (m *ListModel) RemoveItem(value string) {
 	}
 }
 
+func (m *ListModel) UpdateItem(value string, newItem Item) {
+	for i, item := range m.Items {
+		if item.Value() == value {
+			m.Items[i] = newItem
+			return
+		}
+	}
+}
+
 func (m ListModel) visibleItems() int {
 	visible := m.height - 2
 	if visible < 1 {
