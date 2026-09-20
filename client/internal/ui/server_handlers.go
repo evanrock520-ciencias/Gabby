@@ -36,6 +36,12 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 	case protocol.ROOM_TEXT_FROM:
 		return m.handleRoomTextFrom(msg)
 
+	case protocol.JOINED_ROOM:
+		return m.handleJoinedRoom(msg)
+
+	case protocol.LEFT_ROOM:
+		return m.handleLeftRoom(msg)
+
 	case protocol.DISCONNECTED:
 		return m.handleDisconnected(msg)
 	}
@@ -61,6 +67,8 @@ func (m *Model) handleUserList(msg protocol.ServerMessage) tea.Cmd {
 func (m *Model) handleNewUser(msg protocol.ServerMessage) tea.Cmd {
 	user := domain.User{Username: msg.Username, Status: domain.ACTIVE}
 
+	global, _ := m.session.GetRoom("Global")
+	m.chatModel.AddEntry(global, domain.ChatEvent{Text: fmt.Sprintf("%s has joined the chat", msg.Username)})
 	m.session.Users = append(m.session.Users, user)
 	m.usersModel.AddItem(NewUserItem(user))
 
@@ -89,7 +97,7 @@ func (m *Model) handlePublicTextFrom(msg protocol.ServerMessage) tea.Cmd {
 	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
 	room, _ := m.session.GetRoom("Global")
 
-	m.chatModel.AddMessage(room, chatMsg)
+	m.chatModel.AddEntry(room, chatMsg)
 	return nil
 }
 
@@ -98,7 +106,7 @@ func (m *Model) handleTextFrom(msg protocol.ServerMessage) tea.Cmd {
 	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
 
 	dmRoom := m.session.GetOrCreateDM(msg.Username)
-	m.chatModel.AddMessage(dmRoom, chatMsg)
+	m.chatModel.AddEntry(dmRoom, chatMsg)
 	return nil
 }
 
@@ -107,13 +115,29 @@ func (m *Model) handleRoomTextFrom(msg protocol.ServerMessage) tea.Cmd {
 	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
 
 	room, _ := m.session.GetRoom(msg.Roomname)
-	m.chatModel.AddMessage(room, chatMsg)
+	m.chatModel.AddEntry(room, chatMsg)
+	return nil
+}
+
+// handleJoinedRoom maneja la notificación de un nuevo usuario en la sala.
+func (m *Model) handleJoinedRoom(msg protocol.ServerMessage) tea.Cmd {
+	room, _ := m.session.GetRoom(msg.Roomname)
+	m.chatModel.AddEntry(room, domain.ChatEvent{Text: fmt.Sprintf("%s has joined the room", msg.Username)})
+	return nil
+}
+
+// handleLeftRoom maneja la notificación de un usuario que dejó la sala.
+func (m *Model) handleLeftRoom(msg protocol.ServerMessage) tea.Cmd {
+	room, _ := m.session.GetRoom(msg.Roomname)
+	m.chatModel.AddEntry(room, domain.ChatEvent{Text: fmt.Sprintf("%s has left the room", msg.Username)})
 	return nil
 }
 
 // handleDisconnected maneja la desconexión de algún usuario del servidor.
 func (m *Model) handleDisconnected(msg protocol.ServerMessage) tea.Cmd {
-	// TODO: Muestra notificación al chat global.
+	global, _ := m.session.GetRoom("Global")
+	m.chatModel.AddEntry(global, domain.ChatEvent{Text: fmt.Sprintf("%s has left the chat", msg.Username)})
+
 	m.session.RemoveUser(msg.Username)
 	m.usersModel.RemoveItem(msg.Username)
 	return nil
