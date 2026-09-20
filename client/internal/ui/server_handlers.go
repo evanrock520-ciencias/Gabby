@@ -26,6 +26,9 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 
 	case protocol.INVITATION:
 		return m.handleInvitation(msg)
+
+	case protocol.DISCONNECTED:
+		return m.handleDisconnected(msg)
 	}
 
 	return nil
@@ -70,6 +73,14 @@ func (m *Model) handleInvitation(msg protocol.ServerMessage) tea.Cmd {
 	}, func() tea.Msg {
 		return nil
 	}))
+}
+
+// handleDisconnected maneja la desconexión de algún usuario del servidor.
+func (m *Model) handleDisconnected(msg protocol.ServerMessage) tea.Cmd {
+	// TODO: Muestra notificación al chat global.
+	m.session.RemoveUser(msg.Username)
+	m.usersModel.RemoveItem(msg.Username)
+	return nil
 }
 
 // routeResponse enruta los mensajes del servidor al cliente

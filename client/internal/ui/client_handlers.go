@@ -9,6 +9,9 @@ import (
 // routeClientMessage enruta los mensajes del cliente al servidor.
 func (m *Model) routeClientMessage(msg protocol.ClientMessage) tea.Cmd {
 	switch msg.Type {
+	case protocol.DISCONNECT:
+		return tea.Sequence(m.sendToServer(msg), tea.Quit)
+
 	case protocol.IDENTIFY:
 		return m.handleIdentify(msg)
 
