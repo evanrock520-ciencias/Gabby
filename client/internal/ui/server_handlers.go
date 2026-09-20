@@ -14,6 +14,8 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 		return m.routeResponse(msg)
 	case protocol.USER_LIST:
 		return m.handleUserList(msg)
+	case protocol.NEW_USER:
+		return m.handleNewUser(msg)
 	}
 
 	return nil
@@ -29,6 +31,16 @@ func (m *Model) handleUserList(msg protocol.ServerMessage) tea.Cmd {
 		m.session.Users = append(m.session.Users, user)
 		m.usersModel.AddItem(NewUserItem(user))
 	}
+
+	return nil
+}
+
+// handleNewUser maneja la notificación de un nuevo usuario en el servidor.
+func (m *Model) handleNewUser(msg protocol.ServerMessage) tea.Cmd {
+	user := domain.User{Username: msg.Username, Status: domain.ACTIVE}
+
+	m.session.Users = append(m.session.Users, user)
+	m.usersModel.AddItem(NewUserItem(user))
 
 	return nil
 }
