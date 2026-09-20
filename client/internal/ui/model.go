@@ -68,10 +68,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 
 	case protocol.ClientMessage:
-		if msg.Type == protocol.DISCONNECT {
-			return m, tea.Sequence(m.sendToServer(msg), tea.Quit)
-		}
-		return m, m.sendToServer(msg)
+		return m, m.routeClientMessage(msg)
 
 	case protocol.ServerMessage:
 		cmd := m.routeServerMessage(msg)
@@ -216,7 +213,8 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		))
 	case "s":
 		return func() tea.Msg {
-			return nil
+			status, _ := protocol.StatusMessage(m.session.CurrentUser.Status.Next())
+			return status
 		}
 	case "tab":
 		m.setFocus(m.focus.Next())
@@ -246,6 +244,10 @@ func (m *Model) closeModal() {
 func (m *Model) SetStatus(status domain.Status) {
 	m.session.SetStatus(status)
 	m.footerModel.Status = status
+	m.usersModel.UpdateItem(m.session.CurrentUser.Username, NewUserItem(domain.User{
+		Username: m.session.CurrentUser.Username,
+		Status:   status,
+	}))
 }
 
 func (m *Model) SetUsername(username string) {
