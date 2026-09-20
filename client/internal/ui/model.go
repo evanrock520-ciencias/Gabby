@@ -51,8 +51,10 @@ func (m Model) waitForServerMsg() tea.Cmd {
 }
 
 func (m Model) sendToServer(msg protocol.ClientMessage) tea.Cmd {
-	m.conn.Send(msg)
-	return m.waitForServerMsg()
+	return func() tea.Msg {
+		m.conn.Send(msg)
+		return nil
+	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -60,59 +62,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Darle proporción a la interfaz
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.heigth = msg.Height
-
-		// Los paneles tienen bordes que ocupan dos carácteres más de altura y de ancho.
-		m.roomsModel.SetSize(m.width/4-2, (m.heigth/2)-3)
-		(m.usersModel.SetSize(m.width/4-2, m.heigth-(m.heigth/2)-3-1))
-
-		m.chatModel.SetSize(m.width-(m.width/4)-2, m.heigth-5)
-
-		m.footerModel.SetSize(m.width, 3)
-
-		if m.activeModal != nil {
-			m.activeModal.SetSize(m.width, max(0, m.heigth-3)) // -3 por el footer
-		}
-
-		// Delegar el mensaje para que se actualizen los paneles de listas
-		// Y calculen correctamente el offset tras un resize
-		m.roomsModel, _ = m.roomsModel.Update(msg)
-		m.usersModel, _ = m.usersModel.Update(msg)
+		m.handleWindowSize(msg)
 
 	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC {
-			return m, tea.Quit
-		}
+		return m.handleKeyMsg(msg)
 
-		// Si hay un modal activo, consume todo el teclado
-		if m.activeModal != nil {
-			updatedModal, cmd := m.activeModal.Update(msg)
-			m.activeModal = updatedModal
-			if !m.activeModal.IsCapturingInput() {
-				m.closeModal()
-			}
-			return m, cmd
+	case protocol.ClientMessage:
+		if msg.Type == protocol.DISCONNECT {
+			return m, tea.Sequence(m.sendToServer(msg), tea.Quit)
 		}
+		return m, m.sendToServer(msg)
 
-		// Si el panel activo está en modo captura de texto, se delega todo el teclado
-		if active := m.activePanel(); active != nil && active.IsCapturingInput() {
-			var cmd tea.Cmd
-			switch m.focus {
-			case Rooms:
-				m.roomsModel, cmd = m.roomsModel.Update(msg)
-			case Users:
-				m.usersModel, cmd = m.usersModel.Update(msg)
-			case Chat:
-				m.chatModel, cmd = m.chatModel.Update(msg)
-			}
-			m.footerModel.SetKeys(m.CurrentKeymaps())
-			return m, cmd
-		}
-
-		// Modo Navegación
-		cmd := m.handleNavegation(msg)
-		return m, cmd
+	case protocol.ServerMessage:
+		cmd := m.routeServerMessage(msg)
+		return m, tea.Batch(cmd, m.waitForServerMsg())
 
 	default:
 		var cmd tea.Cmd
@@ -194,7 +157,8 @@ func NewModel(session domain.SessionState, conn *network.ConnectionManager) Mode
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
 	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
 	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) tea.Msg {
-		return nil
+		msg, _ := protocol.IdentifyMessage(value)
+		return msg
 	}, false)
 	m := Model{
 		focus:       Rooms,
@@ -210,6 +174,7 @@ func NewModel(session domain.SessionState, conn *network.ConnectionManager) Mode
 	return m
 }
 
+// handleNavegation maneja el control por keybinds de la aplicación.
 func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	// Modo Navegación
 	switch msg.String() {
@@ -303,4 +268,63 @@ func roomItems(rooms map[string]*domain.Room) []panels.Item {
 		items = append(items, NewRoomItem(room))
 	}
 	return items
+}
+
+// handleWindowSize maneja el resize de ventana del programa.
+func (m *Model) handleWindowSize(msg tea.WindowSizeMsg) {
+	m.width = msg.Width
+	m.heigth = msg.Height
+
+	// Los paneles tienen bordes que ocupan dos carácteres más de altura y de ancho.
+	m.roomsModel.SetSize(m.width/4-2, (m.heigth/2)-3)
+	(m.usersModel.SetSize(m.width/4-2, m.heigth-(m.heigth/2)-3-1))
+
+	m.chatModel.SetSize(m.width-(m.width/4)-2, m.heigth-5)
+
+	m.footerModel.SetSize(m.width, 3)
+
+	if m.activeModal != nil {
+		m.activeModal.SetSize(m.width, max(0, m.heigth-3)) // -3 por el footer
+	}
+
+	// Delegar el mensaje para que se actualizen los paneles de listas
+	// Y calculen correctamente el offset tras un resize
+	m.roomsModel, _ = m.roomsModel.Update(msg)
+	m.usersModel, _ = m.usersModel.Update(msg)
+}
+
+// handleKeyMsg maneja los mensajes relacionados al input del programa.
+func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.Type == tea.KeyCtrlC {
+		return m, tea.Quit
+	}
+
+	// Si hay un modal activo, consume todo el teclado
+	if m.activeModal != nil {
+		updatedModal, cmd := m.activeModal.Update(msg)
+		m.activeModal = updatedModal
+		if !m.activeModal.IsCapturingInput() {
+			m.closeModal()
+		}
+		return m, cmd
+	}
+
+	// Si el panel activo está en modo captura de texto, se delega todo el teclado
+	if active := m.activePanel(); active != nil && active.IsCapturingInput() {
+		var cmd tea.Cmd
+		switch m.focus {
+		case Rooms:
+			m.roomsModel, cmd = m.roomsModel.Update(msg)
+		case Users:
+			m.usersModel, cmd = m.usersModel.Update(msg)
+		case Chat:
+			m.chatModel, cmd = m.chatModel.Update(msg)
+		}
+		m.footerModel.SetKeys(m.CurrentKeymaps())
+		return m, cmd
+	}
+
+	// Modo Navegación
+	cmd := m.handleNavegation(msg)
+	return m, cmd
 }
