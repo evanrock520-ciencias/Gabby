@@ -4,6 +4,7 @@ import (
 	"client/internal/domain"
 	"client/internal/network"
 	"client/internal/protocol"
+	"client/internal/ui/messages"
 	"client/internal/ui/panels"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -66,6 +67,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
+
+	case messages.InternalMsg:
+		return m, m.handleInternalMsg(msg)
 
 	case protocol.ClientMessage:
 		return m, m.routeClientMessage(msg)
@@ -143,13 +147,13 @@ func (m Model) View() string {
 
 // Función para poblar los datos de la interfaz
 func NewModel(session domain.SessionState, conn *network.ConnectionManager) Model {
-	globalRoom := session.AddRoom("Global")
+	globalRoom := session.AddRoom(domain.RoomGlobal, "Global")
 
 	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) tea.Msg {
-		return nil
+		return messages.EnterDM{Username: value}
 	})
 	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) tea.Msg {
-		return nil
+		return messages.EnterRoom{Roomname: value}
 	})
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
 	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
@@ -332,4 +336,25 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Modo Navegación
 	cmd := m.handleNavegation(msg)
 	return m, cmd
+}
+
+// handleInternalMsg maneja los comandos internos de la interfaz.
+func (m *Model) handleInternalMsg(msg messages.InternalMsg) tea.Cmd {
+	switch msg := msg.(type) {
+	case messages.EnterRoom:
+		room, ok := m.session.GetRoom(msg.Roomname)
+		if ok {
+			m.chatModel.SetRoom(room)
+			m.setFocus(Chat)
+			return m.chatModel.Focus()
+		}
+
+	case messages.EnterDM:
+		dmRoom := m.session.GetOrCreateDM(msg.Username)
+		m.chatModel.SetRoom(dmRoom)
+		m.setFocus(Chat)
+		return m.chatModel.Focus()
+	}
+
+	return nil
 }
