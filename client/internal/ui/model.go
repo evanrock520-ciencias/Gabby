@@ -189,7 +189,8 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		return m.setFocus(Chat)
 	case "c":
 		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) tea.Msg {
-			return nil
+			room, _ := protocol.NewRoomMessage(value)
+			return room
 		}, true))
 	case "i":
 		return m.openModal(panels.NewWizardModal(

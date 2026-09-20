@@ -60,7 +60,8 @@ func (m *Model) routeResponse(msg protocol.ServerMessage) tea.Cmd {
 	switch msg.Operation {
 	case protocol.IDENTIFY:
 		m.handleIdentifyResponse(msg)
-
+	case protocol.NEW_ROOM:
+		m.handleNewRoomResponse(msg)
 	}
 	return nil
 }
@@ -73,5 +74,18 @@ func (m *Model) handleIdentifyResponse(msg protocol.ServerMessage) tea.Cmd {
 		return nil
 	}
 
+	return nil
+}
+
+// handleNewRoomResponse Verifica que se creó una sala exitosamente.
+func (m *Model) handleNewRoomResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.SUCCESS {
+		m.closeModal()
+
+		room := m.session.AddRoom(msg.Extra)
+		m.roomsModel.AddItem(NewRoomItem(room))
+	}
+
+	// TODO: Quizás añadir notificaciones modales.
 	return nil
 }
