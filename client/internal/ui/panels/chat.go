@@ -61,16 +61,21 @@ func (m *ChatModel) refreshMessages() {
 		return
 	}
 	var sb strings.Builder
-	for _, msg := range m.DisplayedRoom.Messages {
-		userRender := styles.HeaderTitleStyle.Render(msg.Username)
-		msgRender := styles.TextStyle.Render(msg.Message)
+	for _, entry := range m.DisplayedRoom.Entries {
+		switch e := entry.(type) {
+		case domain.ChatMessage:
+			userRender := styles.HeaderTitleStyle.Render(e.Username)
+			msgRender := styles.TextStyle.Render(e.Message)
 
-		clientMessageStyle := styles.MessageStyle.Width(m.width - 5)
-		if msg.Username == m.Username {
-			clientMessageStyle = styles.CurrentUserMessageStyle.Width(m.width - 5).Align(lipgloss.Right)
+			clientMessageStyle := styles.MessageStyle.Width(m.width - 5)
+			if e.Username == m.Username {
+				clientMessageStyle = styles.CurrentUserMessageStyle.Width(m.width - 5).Align(lipgloss.Right)
+			}
+
+			sb.WriteString(clientMessageStyle.Render(userRender + "\n" + msgRender))
+		case domain.ChatEvent:
+			sb.WriteString(styles.EventStyle.Width(m.width - 5).Align(lipgloss.Center).Render(e.Text))
 		}
-
-		sb.WriteString(clientMessageStyle.Render(userRender + "\n" + msgRender))
 		sb.WriteString("\n")
 	}
 
@@ -95,11 +100,11 @@ func (m *ChatModel) SetSize(width int, height int) {
 	}
 }
 
-func (m *ChatModel) AddMessage(room *domain.Room, msg domain.ChatMessage) {
+func (m *ChatModel) AddEntry(room *domain.Room, entry domain.ChatEntry) {
 	if room == nil {
 		return
 	}
-	room.AddMessage(msg)
+	room.AddEntry(entry)
 	if m.DisplayedRoom == room {
 		m.refreshMessages()
 	}
@@ -147,7 +152,7 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 
 			var cmd tea.Cmd
 			if text != "" {
-				m.AddMessage(
+				m.AddEntry(
 					m.DisplayedRoom,
 					domain.ChatMessage{
 						Username: m.Username,

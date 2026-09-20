@@ -8,19 +8,34 @@ const (
 	RoomDM
 )
 
+// ChatEntry es cualquier cosa que puede mostrarse en el historial del chat.
+type ChatEntry interface {
+	chatEntry()
+}
+
+// ChatMessage representa un mensaje de texto de un usuario.
 type ChatMessage struct {
 	Username string
 	Message  string
 }
 
-// BaseRoom contiene los datos comunes de una sala.
-type BaseRoom struct {
-	Name     string
-	Messages []ChatMessage
+func (ChatMessage) chatEntry() {}
+
+// ChatEvent representa un evento del sistema.
+type ChatEvent struct {
+	Text string
 }
 
-func (room *BaseRoom) AddMessage(msg ChatMessage) {
-	room.Messages = append(room.Messages, msg)
+func (ChatEvent) chatEntry() {}
+
+// BaseRoom contiene los datos comunes de una sala.
+type BaseRoom struct {
+	Name    string
+	Entries []ChatEntry
+}
+
+func (room *BaseRoom) AddEntry(entry ChatEntry) {
+	room.Entries = append(room.Entries, entry)
 }
 
 // Room representa cualquier tipo de sala.
@@ -78,8 +93,8 @@ func CreateRoom(kind RoomKind, name string) *Room {
 func NewGlobalRoom() *Room {
 	return &Room{
 		BaseRoom: BaseRoom{
-			Name:     "Global",
-			Messages: []ChatMessage{},
+			Name:    "Global",
+			Entries: []ChatEntry{},
 		},
 		Users: []User{},
 		kind:  RoomGlobal,
@@ -89,8 +104,8 @@ func NewGlobalRoom() *Room {
 func NewChannelRoom(name string) *Room {
 	return &Room{
 		BaseRoom: BaseRoom{
-			Name:     name,
-			Messages: []ChatMessage{},
+			Name:    name,
+			Entries: []ChatEntry{},
 		},
 		Users: []User{},
 		kind:  RoomChannel,
@@ -100,8 +115,8 @@ func NewChannelRoom(name string) *Room {
 func NewDMRoom(username string) *Room {
 	return &Room{
 		BaseRoom: BaseRoom{
-			Name:     "@" + username,
-			Messages: []ChatMessage{},
+			Name:    "@" + username,
+			Entries: []ChatEntry{},
 		},
 		Users:      []User{},
 		kind:       RoomDM,

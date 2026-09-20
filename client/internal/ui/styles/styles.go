@@ -20,4 +20,5 @@ var (
 	NormalButtonStyle       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 	AcceptButtonStyle       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Background(PrimaryColor).BorderBackground(PrimaryColor).BorderForeground(PrimaryColor).Bold(true)
 	CancelButtonStyle       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Background(TerciaryColor).BorderBackground(TerciaryColor).BorderForeground(TerciaryColor).Bold(true)
+	EventStyle              = lipgloss.NewStyle().Foreground(ActiveColor).Italic(true).MarginTop(1)
 )
