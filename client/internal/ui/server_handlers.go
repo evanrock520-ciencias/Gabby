@@ -3,6 +3,7 @@ package ui
 import (
 	"client/internal/domain"
 	"client/internal/protocol"
+	"client/internal/ui/messages"
 	"client/internal/ui/panels"
 	"fmt"
 
@@ -41,6 +42,9 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 
 	case protocol.LEFT_ROOM:
 		return m.handleLeftRoom(msg)
+
+	case protocol.ROOM_USER_LIST:
+		return m.handleRoomUserList(msg)
 
 	case protocol.DISCONNECTED:
 		return m.handleDisconnected(msg)
@@ -131,6 +135,18 @@ func (m *Model) handleLeftRoom(msg protocol.ServerMessage) tea.Cmd {
 	room, _ := m.session.GetRoom(msg.Roomname)
 	m.chatModel.AddEntry(room, domain.ChatEvent{Text: fmt.Sprintf("%s has left the room", msg.Username)})
 	return nil
+}
+
+// handleRoomUserList notifica la apertura de un modal en el chat.
+func (m *Model) handleRoomUserList(msg protocol.ServerMessage) tea.Cmd {
+	users := make([]domain.User, 0, len(msg.Users))
+	for username, status := range msg.Users {
+		users = append(users, domain.User{Username: username, Status: status})
+	}
+
+	return func() tea.Msg {
+		return messages.ShowRoomUserlist{Roomname: msg.Roomname, Users: users}
+	}
 }
 
 // handleDisconnected maneja la desconexión de algún usuario del servidor.

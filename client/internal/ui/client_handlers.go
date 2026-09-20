@@ -38,6 +38,9 @@ func (m *Model) routeClientMessage(msg protocol.ClientMessage) tea.Cmd {
 
 	case protocol.LEAVE_ROOM:
 		return m.handleLeaveRoom(msg)
+
+	case protocol.ROOM_USERS:
+		return m.handleRoomUsers(msg)
 	}
 
 	return nil
@@ -94,5 +97,10 @@ func (m *Model) handleLeaveRoom(msg protocol.ClientMessage) tea.Cmd {
 		m.chatModel.SetRoom(globalRoom)
 	}
 
+	return m.sendToServer(msg)
+}
+
+// handleRoomUsers maneja la petición de listas de usuarios de una sala.
+func (m *Model) handleRoomUsers(msg protocol.ClientMessage) tea.Cmd {
 	return m.sendToServer(msg)
 }

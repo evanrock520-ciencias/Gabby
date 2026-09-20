@@ -129,9 +129,22 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 				if m.DisplayedRoom == nil {
 					return m, nil
 				}
+
 				if m.DisplayedRoom.CanLeave() {
 					return m, func() tea.Msg {
 						return messages.LeaveRoomPetition{Roomname: m.DisplayedRoom.Name}
+					}
+				}
+
+			case "l":
+				if m.DisplayedRoom == nil {
+					return m, nil
+				}
+
+				if m.DisplayedRoom.CanLeave() {
+					return m, func() tea.Msg {
+						roomUsers, _ := protocol.RoomUsersMessage(m.DisplayedRoom.Name)
+						return roomUsers
 					}
 				}
 			}

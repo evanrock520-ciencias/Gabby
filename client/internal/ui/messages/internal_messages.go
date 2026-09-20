@@ -1,5 +1,9 @@
 package messages
 
+import (
+	"client/internal/domain"
+)
+
 type InternalMsg interface {
 	isInternal()
 }
@@ -21,3 +25,10 @@ type LeaveRoomPetition struct {
 }
 
 func (msg LeaveRoomPetition) isInternal() {}
+
+type ShowRoomUserlist struct {
+	Roomname string
+	Users    []domain.User
+}
+
+func (msg ShowRoomUserlist) isInternal() {}

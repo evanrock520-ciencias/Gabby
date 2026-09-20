@@ -364,6 +364,11 @@ func (m *Model) handleInternalMsg(msg messages.InternalMsg) tea.Cmd {
 			func() tea.Msg {
 				return nil
 			}))
+
+	case messages.ShowRoomUserlist:
+		return m.openModal(panels.NewListModal(fmt.Sprintf("Users in %s", msg.Roomname), userItems(msg.Users), false, func(values []string) tea.Msg {
+			return nil
+		}))
 	}
 
 	return nil
