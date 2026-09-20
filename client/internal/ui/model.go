@@ -2,9 +2,10 @@ package ui
 
 import (
 	"client/internal/domain"
+	"client/internal/network"
+	"client/internal/protocol"
 	"client/internal/ui/messages"
 	"client/internal/ui/panels"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -37,10 +38,22 @@ type Model struct {
 	footerModel panels.FooterModel
 	activeModal panels.Modal
 	session     domain.SessionState
+	conn        *network.ConnectionManager
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.chatModel.Init(), m.activeModal.Focus())
+	return tea.Batch(m.chatModel.Init(), m.activeModal.Focus(), m.waitForServerMsg())
+}
+
+func (m Model) waitForServerMsg() tea.Cmd {
+	return func() tea.Msg {
+		return <-m.conn.Messages()
+	}
+}
+
+func (m Model) sendToServer(msg protocol.ClientMessage) tea.Cmd {
+	m.conn.Send(msg)
+	return m.waitForServerMsg()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -67,72 +80,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Y calculen correctamente el offset tras un resize
 		m.roomsModel, _ = m.roomsModel.Update(msg)
 		m.usersModel, _ = m.usersModel.Update(msg)
-
-	case messages.GlobalResultMsg:
-		switch result := msg.(type) {
-		case messages.ChangeStatusMsg:
-			m.SetStatus(result.Status)
-		}
-
-	case messages.ChatResultMsg:
-		switch result := msg.(type) {
-		case messages.LeftRoomMsg:
-			if result.Roomname == "Global" || strings.HasPrefix(result.Roomname, "@") || result.Roomname == "" {
-				return m, nil
-			}
-			m.roomsModel.RemoveItem(result.Roomname)
-			m.session.RemoveRoom(result.Roomname)
-			if m.chatModel.DisplayedRoom != nil && m.chatModel.DisplayedRoom.Name == result.Roomname {
-				if globalRoom, ok := m.session.GetRoom("Global"); ok {
-					m.chatModel.SetRoom(globalRoom)
-				} else {
-					m.chatModel.SetRoom(nil)
-				}
-			}
-		}
-
-	case messages.ListResultMsg:
-		switch result := msg.(type) {
-		case messages.EnterRoomMsg:
-			if result.Roomname != "" {
-				if room, ok := m.session.GetRoom(result.Roomname); ok {
-					m.chatModel.SetRoom(room)
-					m.setFocus(Chat)
-					return m, m.chatModel.Focus()
-				}
-			}
-		case messages.EnterDMMsg:
-			if result.Username != "" {
-				dmRoom := m.session.GetOrCreateDM(result.Username)
-				m.chatModel.SetRoom(dmRoom)
-				m.setFocus(Chat)
-				return m, m.chatModel.Focus()
-			}
-		}
-
-	case messages.ModalResultMsg:
-		m.closeModal()
-
-		switch result := msg.(type) {
-		case messages.CreateRoomMsg:
-			if result.Roomname != "" {
-				room := m.session.AddRoom(result.Roomname)
-				m.roomsModel.AddItem(NewRoomItem(room))
-			}
-		case messages.SetUserMsg:
-			if result.Username != "" {
-				m.SetUsername(result.Username)
-			} else {
-				return m, tea.Quit
-			}
-		case messages.LeftChat:
-			return m, tea.Quit
-
-		case messages.InvitateMsg:
-			// TODO: Implementar envio de mensajes
-			m.closeModal()
-			return m, nil
-		}
 
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
@@ -236,18 +183,18 @@ func (m Model) View() string {
 }
 
 // Función para poblar los datos de la interfaz
-func NewModel(session domain.SessionState) Model {
+func NewModel(session domain.SessionState, conn *network.ConnectionManager) Model {
 	globalRoom := session.AddRoom("Global")
 
-	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) messages.ListResultMsg {
+	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) tea.Msg {
 		return messages.EnterDMMsg{Username: value}
 	})
-	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) messages.ListResultMsg {
+	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) tea.Msg {
 		return messages.EnterRoomMsg{Roomname: value}
 	})
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
 	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
-	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) messages.ModalResultMsg {
+	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) tea.Msg {
 		return messages.SetUserMsg{Username: value}
 	}, false)
 	m := Model{
@@ -258,6 +205,7 @@ func NewModel(session domain.SessionState) Model {
 		footerModel: footerModel,
 		activeModal: loginModel,
 		session:     session,
+		conn:        conn,
 	}
 	m.syncFocus()
 	return m
@@ -267,9 +215,9 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	// Modo Navegación
 	switch msg.String() {
 	case "q":
-		m.openModal(panels.NewConfirmModal("Leave the Chat", []string{"Yes", "Not"}, func() messages.ModalResultMsg {
+		m.openModal(panels.NewConfirmModal("Leave the Chat", []string{"Yes", "Not"}, func() tea.Msg {
 			return messages.LeftChat{}
-		}, func() messages.ModalResultMsg {
+		}, func() tea.Msg {
 			return nil
 		}))
 	case "1":
@@ -279,24 +227,24 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 	case "3":
 		return m.setFocus(Chat)
 	case "c":
-		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) messages.ModalResultMsg {
+		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) tea.Msg {
 			return messages.CreateRoomMsg{Roomname: value}
 		}, true))
 	case "i":
 		return m.openModal(panels.NewWizardModal(
 			func(store *panels.WizardStore) []panels.Modal {
 				return []panels.Modal{
-					panels.NewListModal("Select a Room", roomItems(m.session.Rooms), false, func(values []string) messages.ModalResultMsg {
+					panels.NewListModal("Select a Room", roomItems(m.session.Rooms), false, func(values []string) tea.Msg {
 						store.Set("room", values)
 						return nil
 					}),
-					panels.NewListModal("Select Users", userItems(m.session.Users), true, func(values []string) messages.ModalResultMsg {
+					panels.NewListModal("Select Users", userItems(m.session.Users), true, func(values []string) tea.Msg {
 						store.Set("users", values)
 						return nil
 					}),
 				}
 			},
-			func(store panels.WizardStore) messages.ModalResultMsg {
+			func(store panels.WizardStore) tea.Msg {
 				rooms, _ := store.Get("room")
 				users, _ := store.Get("users")
 				return messages.InvitateMsg{Roomname: rooms[0], Users: users}
