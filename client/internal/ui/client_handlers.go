@@ -29,6 +29,9 @@ func (m *Model) routeClientMessage(msg protocol.ClientMessage) tea.Cmd {
 
 	case protocol.PUBLIC_TEXT:
 		return m.handlePublicText(msg)
+
+	case protocol.TEXT:
+		return m.handleText(msg)
 	}
 
 	return nil
@@ -62,5 +65,10 @@ func (m *Model) handleJoinRoom(msg protocol.ClientMessage) tea.Cmd {
 
 // handlePublicText maneja el envío de mensajes a la sala pública
 func (m *Model) handlePublicText(msg protocol.ClientMessage) tea.Cmd {
+	return m.sendToServer(msg)
+}
+
+// handleText maneja el envío de DMs.
+func (m *Model) handleText(msg protocol.ClientMessage) tea.Cmd {
 	return m.sendToServer(msg)
 }

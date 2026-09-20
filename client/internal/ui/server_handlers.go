@@ -30,6 +30,9 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 	case protocol.PUBLIC_TEXT_FROM:
 		return m.handlePublicTextFrom(msg)
 
+	case protocol.TEXT_FROM:
+		return m.handleTextFrom(msg)
+
 	case protocol.DISCONNECTED:
 		return m.handleDisconnected(msg)
 	}
@@ -78,9 +81,21 @@ func (m *Model) handleInvitation(msg protocol.ServerMessage) tea.Cmd {
 	}))
 }
 
+// handlePublicTextFrom maneja la llegada de mensajes globales.
 func (m *Model) handlePublicTextFrom(msg protocol.ServerMessage) tea.Cmd {
 	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
-	m.chatModel.AddMessage(chatMsg)
+	room, _ := m.session.GetRoom("Global")
+
+	m.chatModel.AddMessage(room, chatMsg)
+	return nil
+}
+
+// handleTextFrom maneja la llegada de DMs.
+func (m *Model) handleTextFrom(msg protocol.ServerMessage) tea.Cmd {
+	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
+
+	dmRoom := m.session.GetOrCreateDM(msg.Username)
+	m.chatModel.AddMessage(dmRoom, chatMsg)
 	return nil
 }
 
