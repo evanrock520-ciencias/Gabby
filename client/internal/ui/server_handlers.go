@@ -16,6 +16,8 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 		return m.handleUserList(msg)
 	case protocol.NEW_USER:
 		return m.handleNewUser(msg)
+	case protocol.NEW_STATUS:
+		return m.handleNewStatus(msg)
 	}
 
 	return nil
@@ -42,6 +44,13 @@ func (m *Model) handleNewUser(msg protocol.ServerMessage) tea.Cmd {
 	m.session.Users = append(m.session.Users, user)
 	m.usersModel.AddItem(NewUserItem(user))
 
+	return nil
+}
+
+// handleNewStatus maneja la notificación de un nuevo estado de usuario en el servidor.
+func (m *Model) handleNewStatus(msg protocol.ServerMessage) tea.Cmd {
+	m.session.SetUserStatus(msg.Username, msg.Status)
+	m.usersModel.UpdateItem(msg.Username, NewUserItem(domain.User{Username: msg.Username, Status: msg.Status}))
 	return nil
 }
 
