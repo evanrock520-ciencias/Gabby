@@ -33,6 +33,9 @@ func (m *Model) routeServerMessage(msg protocol.ServerMessage) tea.Cmd {
 	case protocol.TEXT_FROM:
 		return m.handleTextFrom(msg)
 
+	case protocol.ROOM_TEXT_FROM:
+		return m.handleRoomTextFrom(msg)
+
 	case protocol.DISCONNECTED:
 		return m.handleDisconnected(msg)
 	}
@@ -96,6 +99,15 @@ func (m *Model) handleTextFrom(msg protocol.ServerMessage) tea.Cmd {
 
 	dmRoom := m.session.GetOrCreateDM(msg.Username)
 	m.chatModel.AddMessage(dmRoom, chatMsg)
+	return nil
+}
+
+// handleRoomTextFrom maneja la llegada de mensajes a salas.
+func (m *Model) handleRoomTextFrom(msg protocol.ServerMessage) tea.Cmd {
+	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
+
+	room, _ := m.session.GetRoom(msg.Roomname)
+	m.chatModel.AddMessage(room, chatMsg)
 	return nil
 }
 
