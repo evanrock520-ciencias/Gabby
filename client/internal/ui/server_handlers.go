@@ -125,7 +125,7 @@ func (m *Model) handleNewRoomResponse(msg protocol.ServerMessage) tea.Cmd {
 	if msg.Result == protocol.SUCCESS {
 		m.closeModal()
 
-		room := m.session.AddRoom(msg.Extra)
+		room := m.session.AddRoom(domain.RoomChannel, msg.Extra)
 		m.roomsModel.AddItem(NewRoomItem(room))
 	}
 
@@ -136,7 +136,7 @@ func (m *Model) handleNewRoomResponse(msg protocol.ServerMessage) tea.Cmd {
 // handleJoinRoomResponse Verifica la unión a una sala
 func (m *Model) handleJoinRoomResponse(msg protocol.ServerMessage) tea.Cmd {
 	if msg.Result == protocol.SUCCESS {
-		room := m.session.AddRoom(msg.Extra)
+		room := m.session.AddRoom(domain.RoomChannel, msg.Extra)
 		m.roomsModel.AddItem(NewRoomItem(room))
 	}
 	m.closeModal()
