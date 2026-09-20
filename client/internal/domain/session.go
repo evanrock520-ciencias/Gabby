@@ -78,3 +78,12 @@ func (s *SessionState) SetCurrentUser(username string, status Status) {
 func (s *SessionState) SetStatus(status Status) {
 	s.CurrentUser.Status = status
 }
+
+func (s *SessionState) SetUserStatus(username string, status Status) {
+	for i, item := range s.Users {
+		if item.Username == username {
+			s.Users[i].Status = status
+			return
+		}
+	}
+}
