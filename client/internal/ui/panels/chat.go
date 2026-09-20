@@ -5,6 +5,7 @@ import (
 
 	"client/internal/domain"
 	"client/internal/protocol"
+	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -119,9 +120,12 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 			switch msg.String() {
 
 			case "e":
-				if m.DisplayedRoom != nil && m.DisplayedRoom.CanLeave() {
+				if m.DisplayedRoom == nil {
+					return m, nil
+				}
+				if m.DisplayedRoom.CanLeave() {
 					return m, func() tea.Msg {
-						return nil
+						return messages.LeaveRoomPetition{Roomname: m.DisplayedRoom.Name}
 					}
 				}
 			}

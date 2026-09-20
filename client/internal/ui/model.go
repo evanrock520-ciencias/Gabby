@@ -6,6 +6,7 @@ import (
 	"client/internal/protocol"
 	"client/internal/ui/messages"
 	"client/internal/ui/panels"
+	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -354,6 +355,15 @@ func (m *Model) handleInternalMsg(msg messages.InternalMsg) tea.Cmd {
 		m.chatModel.SetRoom(dmRoom)
 		m.setFocus(Chat)
 		return m.chatModel.Focus()
+
+	case messages.LeaveRoomPetition:
+		return m.openModal(panels.NewConfirmModal(fmt.Sprintf("Leave the room %s", msg.Roomname), []string{"Yes", "Not"}, func() tea.Msg {
+			leaveRoom, _ := protocol.LeaveRoomMessage(msg.Roomname)
+			return leaveRoom
+		},
+			func() tea.Msg {
+				return nil
+			}))
 	}
 
 	return nil

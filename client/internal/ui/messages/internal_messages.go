@@ -15,3 +15,9 @@ type EnterDM struct {
 }
 
 func (msg EnterDM) isInternal() {}
+
+type LeaveRoomPetition struct {
+	Roomname string
+}
+
+func (msg LeaveRoomPetition) isInternal() {}
