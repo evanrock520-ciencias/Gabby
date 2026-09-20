@@ -1,7 +1,6 @@
 package panels
 
 import (
-	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,14 +11,14 @@ type ConfirmModal struct {
 	Layout
 	Prompt   string
 	Choices  []string
-	OnAccept func() messages.ModalResultMsg
-	OnCancel func() messages.ModalResultMsg
+	OnAccept func() tea.Msg
+	OnCancel func() tea.Msg
 
 	cursor int
 	active bool
 }
 
-func NewConfirmModal(prompt string, choices []string, accept func() messages.ModalResultMsg, cancel func() messages.ModalResultMsg) *ConfirmModal {
+func NewConfirmModal(prompt string, choices []string, accept func() tea.Msg, cancel func() tea.Msg) *ConfirmModal {
 	return &ConfirmModal{
 		Prompt:   prompt,
 		Choices:  choices,

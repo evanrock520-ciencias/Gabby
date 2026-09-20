@@ -1,7 +1,6 @@
 package panels
 
 import (
-	"client/internal/ui/messages"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,11 +14,11 @@ type ListModal struct {
 	offset   int
 	multi    bool
 	selected map[string]struct{}
-	onDone   func(values []string) messages.ModalResultMsg
+	onDone   func(values []string) tea.Msg
 	active   bool
 }
 
-func NewListModal(title string, items []Item, multi bool, done func(values []string) messages.ModalResultMsg) *ListModal {
+func NewListModal(title string, items []Item, multi bool, done func(values []string) tea.Msg) *ListModal {
 	return &ListModal{
 		title:    title,
 		items:    items,

@@ -1,7 +1,6 @@
 package panels
 
 import (
-	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -12,11 +11,11 @@ type InputModal struct {
 	Layout
 	TextInput textinput.Model
 	Prompt    string
-	onConfirm func(value string) messages.ModalResultMsg
+	onConfirm func(value string) tea.Msg
 	optional  bool
 }
 
-func NewInputModal(prompt string, placeholder string, charLimit int, action func(value string) messages.ModalResultMsg, optional bool) *InputModal {
+func NewInputModal(prompt string, placeholder string, charLimit int, action func(value string) tea.Msg, optional bool) *InputModal {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
 	ti.Blur()

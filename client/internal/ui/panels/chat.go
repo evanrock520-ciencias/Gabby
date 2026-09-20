@@ -136,8 +136,8 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 			}
 			text := strings.TrimSpace(m.TextInput.Value())
 			if text != "" {
-				chatMessage := domain.ChatMessage{Message: text, Username: m.Username}
-				m.AddMessage(chatMessage)
+				// TODO: Enviar TEXT/PUBLIC_TEXT/ROOM_TEXT al servidor según el room actual
+				// El mensaje se mostrará cuando el servidor lo confirme
 			}
 			m.TextInput.SetValue("")
 			return m, nil

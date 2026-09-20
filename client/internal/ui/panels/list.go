@@ -1,7 +1,6 @@
 package panels
 
 import (
-	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 	"slices"
 	"strings"
@@ -27,12 +26,12 @@ type ListModel struct {
 	Panel
 	Title   string
 	Items   []Item
-	OnEnter func(value string) messages.ListResultMsg
+	OnEnter func(value string) tea.Msg
 
 	offset int
 }
 
-func NewListModel(title string, items []Item, onEnter func(value string) messages.ListResultMsg) ListModel {
+func NewListModel(title string, items []Item, onEnter func(value string) tea.Msg) ListModel {
 	return ListModel{
 		Title:   title,
 		Items:   items,
