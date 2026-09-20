@@ -18,16 +18,16 @@ func NewSessionState(currentUser User) SessionState {
 	}
 }
 
-func (s *SessionState) AddRoom(name string) *Room {
+func (s *SessionState) AddRoom(kind RoomKind, name string) *Room {
 	if s.Rooms == nil {
 		s.Rooms = make(map[string]*Room)
 	}
 	if room, exists := s.Rooms[name]; exists {
 		return room
 	}
-	newRoom := NewRoom(name)
-	s.Rooms[name] = &newRoom
-	return &newRoom
+	newRoom := CreateRoom(kind, name)
+	s.Rooms[name] = newRoom
+	return newRoom
 }
 
 func (s *SessionState) GetRoom(name string) (*Room, bool) {
@@ -60,9 +60,9 @@ func (s *SessionState) GetOrCreateDM(username string) *Room {
 	if dm, exists := s.DMs[username]; exists {
 		return dm
 	}
-	newDMRoom := NewRoom("@" + username)
-	s.DMs[username] = &newDMRoom
-	return &newDMRoom
+	newDMRoom := NewDMRoom(username)
+	s.DMs[username] = newDMRoom
+	return newDMRoom
 }
 
 func (s *SessionState) Usernames() []string {

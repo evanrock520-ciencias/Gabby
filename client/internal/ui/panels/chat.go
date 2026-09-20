@@ -116,7 +116,7 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 			switch msg.String() {
 
 			case "e":
-				if m.DisplayedRoom != nil && m.DisplayedRoom.Name != "Global" && !strings.HasPrefix(m.DisplayedRoom.Name, "@") {
+				if m.DisplayedRoom != nil && m.DisplayedRoom.CanLeave() {
 					return m, func() tea.Msg {
 						return nil
 					}
@@ -169,7 +169,7 @@ func (m ChatModel) View() string {
 	boxStyle := styles.BoxStyle.Width(m.width).Height(m.height)
 	roomName := ""
 	if m.DisplayedRoom != nil {
-		roomName = m.DisplayedRoom.Name
+		roomName = m.DisplayedRoom.Title()
 	}
 	header := styles.ChatNameStyle.Width(m.width - 2).Render(roomName)
 
@@ -195,10 +195,17 @@ func (m *ChatModel) sendToRoom(text string) tea.Cmd {
 		return nil
 	}
 
-	if m.DisplayedRoom.Name == "Global" {
-		publicText, _ := protocol.PublicTextMessage(text)
-		return func() tea.Msg { return publicText }
+	var clientMsg protocol.ClientMessage
+	switch m.DisplayedRoom.Kind() {
+	case domain.RoomGlobal:
+		clientMsg, _ = protocol.PublicTextMessage(text)
+	case domain.RoomDM:
+		clientMsg, _ = protocol.TextMessage(m.DisplayedRoom.TargetUser(), text)
+	case domain.RoomChannel:
+		clientMsg, _ = protocol.RoomTextMessage(m.DisplayedRoom.Name, text)
+	default:
+		return nil
 	}
 
-	return nil
+	return func() tea.Msg { return clientMsg }
 }
