@@ -97,7 +97,6 @@ func (m *Model) openModal(modal panels.Modal) tea.Cmd {
 	m.chatModel.Blur()
 	cmd := modal.Focus()
 	m.activeModal = modal
-	m.footerModel.SetKeys(m.CurrentKeymaps())
 	return cmd
 }
 
@@ -113,7 +112,6 @@ func (m *Model) syncFocus() {
 	m.usersModel.SetFocus(m.focus == Users)
 	m.roomsModel.SetFocus(m.focus == Rooms)
 	m.chatModel.SetFocus(m.focus == Chat)
-	m.footerModel.SetKeys(m.CurrentKeymaps())
 }
 
 func (m Model) activePanel() panels.InputCapturer {
@@ -142,7 +140,7 @@ func (m Model) View() string {
 		mainView = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, chatView)
 	}
 
-	footerView := m.footerModel.View()
+	footerView := m.footerModel.ViewWithBindings(m.CurrentKeymaps())
 	return lipgloss.JoinVertical(lipgloss.Top, mainView, footerView)
 }
 
@@ -157,7 +155,7 @@ func NewModel(session domain.SessionState, conn *network.ConnectionManager) Mode
 		return messages.EnterRoom{Roomname: value}
 	})
 	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
-	footerModel := panels.FooterModel{Username: "", Status: domain.ACTIVE}
+	footerModel := panels.NewFooterModel("", domain.ACTIVE)
 	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) tea.Msg {
 		msg, _ := protocol.IdentifyMessage(value)
 		return msg
@@ -330,7 +328,6 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case Chat:
 			m.chatModel, cmd = m.chatModel.Update(msg)
 		}
-		m.footerModel.SetKeys(m.CurrentKeymaps())
 		return m, cmd
 	}
 
