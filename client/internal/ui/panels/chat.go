@@ -64,7 +64,7 @@ func (m *ChatModel) refreshMessages() {
 	for _, entry := range m.DisplayedRoom.Entries {
 		switch e := entry.(type) {
 		case domain.ChatMessage:
-			userRender := styles.HeaderTitleStyle.Render(e.Username)
+			userRender := styles.HeaderTitleStyle.Foreground(styles.ColorByUsername(e.Username)).Render(e.Username)
 			msgRender := styles.TextStyle.Render(e.Message)
 
 			clientMessageStyle := styles.MessageStyle.Width(m.width - 5)

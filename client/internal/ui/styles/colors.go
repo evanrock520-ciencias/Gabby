@@ -1,6 +1,8 @@
 package styles
 
 import (
+	"hash/fnv"
+
 	"client/internal/domain"
 
 	"github.com/charmbracelet/lipgloss"
@@ -26,4 +28,18 @@ func ColorByStatus(status domain.Status) lipgloss.Color {
 		return SecondaryColor
 	}
 	return PrimaryColor
+}
+
+var UserPalette = []lipgloss.Color{
+	lipgloss.Color("#4D87EB"),
+	lipgloss.Color("#624DEB"),
+	lipgloss.Color("#B14DEB"),
+	lipgloss.Color("#EBB14D"),
+	lipgloss.Color("#87EB4D"),
+}
+
+func ColorByUsername(username string) lipgloss.Color {
+	hash := fnv.New32a()
+	hash.Write([]byte(username))
+	return UserPalette[hash.Sum32()%uint32(len(UserPalette))]
 }
