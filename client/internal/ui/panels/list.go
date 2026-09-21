@@ -1,7 +1,6 @@
 package panels
 
 import (
-	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 	"slices"
 	"strings"
@@ -27,12 +26,12 @@ type ListModel struct {
 	Panel
 	Title   string
 	Items   []Item
-	OnEnter func(value string) messages.ListResultMsg
+	OnEnter func(value string) tea.Msg
 
 	offset int
 }
 
-func NewListModel(title string, items []Item, onEnter func(value string) messages.ListResultMsg) ListModel {
+func NewListModel(title string, items []Item, onEnter func(value string) tea.Msg) ListModel {
 	return ListModel{
 		Title:   title,
 		Items:   items,
@@ -126,6 +125,15 @@ func (m *ListModel) RemoveItem(value string) {
 		m.cursor = 0
 	} else if m.cursor >= len(m.Items) {
 		m.cursor = len(m.Items) - 1
+	}
+}
+
+func (m *ListModel) UpdateItem(value string, newItem Item) {
+	for i, item := range m.Items {
+		if item.Value() == value {
+			m.Items[i] = newItem
+			return
+		}
 	}
 }
 

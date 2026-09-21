@@ -2,24 +2,32 @@ package main
 
 import (
 	"client/internal/domain"
+	"client/internal/network"
 	"client/internal/ui"
-	"fmt"
+	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
-	//TODO: Obtener los datos del servidor
-	users := []domain.User{{Username: "Evan", Status: domain.ACTIVE}, {Username: "Derek", Status: domain.AWAY}}
-	session := domain.SessionState{
-		Users: users,
-		Rooms: map[string]*domain.Room{
-			"Global": {Name: "Global", Users: users, Messages: []domain.ChatMessage{}},
-		},
-		DMs: make(map[string]*domain.Room),
+	f, err := tea.LogToFile("debug.log", "client")
+	if err != nil {
+		log.Fatal(err)
 	}
-	p := tea.NewProgram(ui.NewModel(session), tea.WithAltScreen())
+	defer f.Close()
+
+	conn := network.ConnectionManager{}
+	conn.Dial("localhost:9090")
+	go conn.Listen()
+
+	session := domain.SessionState{
+		Users: []domain.User{},
+		Rooms: make(map[string]*domain.Room),
+		DMs:   make(map[string]*domain.Room),
+	}
+
+	p := tea.NewProgram(ui.NewModel(session, &conn), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 }

@@ -1,8 +1,6 @@
 package panels
 
 import (
-	"client/internal/ui/messages"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -28,11 +26,11 @@ type WizardModal struct {
 	store       WizardStore
 	steps       []Modal
 	currentStep int
-	onDone      func(WizardStore) messages.ModalResultMsg
+	onDone      func(WizardStore) tea.Msg
 	done        bool
 }
 
-func NewWizardModal(factory func(store *WizardStore) []Modal, onDone func(WizardStore) messages.ModalResultMsg) *WizardModal {
+func NewWizardModal(factory func(store *WizardStore) []Modal, onDone func(WizardStore) tea.Msg) *WizardModal {
 	w := &WizardModal{onDone: onDone}
 	w.store = newWizardStore()
 	w.steps = factory(&w.store)

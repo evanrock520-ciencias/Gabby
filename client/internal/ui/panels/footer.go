@@ -3,67 +3,43 @@ package panels
 import (
 	"client/internal/domain"
 	"client/internal/ui/styles"
-	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type Keymap struct {
-	key    string
-	action string
-}
-
-func NewKeymap(key string, action string) Keymap {
-	return Keymap{
-		key:    key,
-		action: action,
-	}
-}
-
 type FooterModel struct {
 	Layout
-	Keymaps []Keymap
-	// Probablemente convenga utilizar una referencia a un tipo usuario para actualizar la interfaz
+	help     help.Model
 	Username string
 	Status   domain.Status
 }
 
-func NewFooterModel(keymaps []Keymap, username string, status domain.Status) FooterModel {
+func NewFooterModel(username string, status domain.Status) FooterModel {
+	h := help.New()
+	h.ShortSeparator = "  "
+	h.Styles.ShortKey = lipgloss.NewStyle().Foreground(styles.PrimaryColor).Bold(true)
+	h.Styles.ShortDesc = styles.KeymapsStyle
+	h.Styles.ShortSeparator = styles.KeymapsStyle
 	return FooterModel{
-		Keymaps:  keymaps,
+		help:     h,
 		Username: username,
 		Status:   status,
 	}
 }
 
-func (m FooterModel) Init() tea.Cmd {
-	return nil
-}
-
-func (m FooterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m, nil
-}
-
-func (m FooterModel) View() string {
+// ViewWithBindings renderiza el footer con los keybinds dados.
+func (m FooterModel) ViewWithBindings(bindings []key.Binding) string {
 	availableWidth := m.width - 2
 	footerStyle := lipgloss.NewStyle().Width(availableWidth).MarginLeft(1).MarginRight(1).Height(3)
 
-	var sb strings.Builder
-	for _, keymap := range m.Keymaps {
-		sb.WriteString(styles.KeymapsStyle.Render("● " + keymap.key + " - " + keymap.action))
-		sb.WriteString("    ")
-	}
-
-	left := sb.String()
+	m.help.Width = availableWidth
+	left := m.help.ShortHelpView(bindings)
 	leftWidth := lipgloss.Width(left)
 
 	statusWidth := max(0, availableWidth-leftWidth)
 	right := styles.StatusStyle.Width(statusWidth).Align(lipgloss.Right).Foreground(styles.ColorByStatus(m.Status)).Render("◉ " + m.Username)
 
 	return footerStyle.AlignVertical(lipgloss.Center).Render(left + right)
-}
-
-func (m *FooterModel) SetKeys(keys []Keymap) {
-	m.Keymaps = keys
 }

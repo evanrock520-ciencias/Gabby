@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"client/internal/domain"
+	"client/internal/protocol"
 	"client/internal/ui/messages"
 	"client/internal/ui/styles"
 
@@ -60,16 +61,21 @@ func (m *ChatModel) refreshMessages() {
 		return
 	}
 	var sb strings.Builder
-	for _, msg := range m.DisplayedRoom.Messages {
-		userRender := styles.HeaderTitleStyle.Render(msg.Username)
-		msgRender := styles.TextStyle.Render(msg.Message)
+	for _, entry := range m.DisplayedRoom.Entries {
+		switch e := entry.(type) {
+		case domain.ChatMessage:
+			userRender := styles.HeaderTitleStyle.Foreground(styles.ColorByUsername(e.Username)).Render(e.Username)
+			msgRender := styles.TextStyle.Render(e.Message)
 
-		clientMessageStyle := styles.MessageStyle.Width(m.width - 5)
-		if msg.Username == m.Username {
-			clientMessageStyle = styles.CurrentUserMessageStyle.Width(m.width - 5).Align(lipgloss.Right)
+			clientMessageStyle := styles.MessageStyle.Width(m.width - 5)
+			if e.Username == m.Username {
+				clientMessageStyle = styles.CurrentUserMessageStyle.Width(m.width - 5).Align(lipgloss.Right)
+			}
+
+			sb.WriteString(clientMessageStyle.Render(userRender + "\n" + msgRender))
+		case domain.ChatEvent:
+			sb.WriteString(styles.EventStyle.Width(m.width - 5).Align(lipgloss.Center).Render(e.Text))
 		}
-
-		sb.WriteString(clientMessageStyle.Render(userRender + "\n" + msgRender))
 		sb.WriteString("\n")
 	}
 
@@ -90,12 +96,16 @@ func (m *ChatModel) SetSize(width int, height int) {
 	} else {
 		m.Viewport.Width = viewportWidth
 		m.Viewport.Height = viewportHeight
+		m.refreshMessages()
 	}
 }
 
-func (m *ChatModel) AddMessage(msg domain.ChatMessage) {
-	if m.DisplayedRoom != nil {
-		m.DisplayedRoom.AddMessage(msg)
+func (m *ChatModel) AddEntry(room *domain.Room, entry domain.ChatEntry) {
+	if room == nil {
+		return
+	}
+	room.AddEntry(entry)
+	if m.DisplayedRoom == room {
 		m.refreshMessages()
 	}
 }
@@ -114,12 +124,27 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 	case tea.KeyMsg:
 		if !m.TextInput.Focused() {
 			switch msg.String() {
+
 			case "e":
-				if m.DisplayedRoom != nil && m.DisplayedRoom.Name != "Global" && !strings.HasPrefix(m.DisplayedRoom.Name, "@") {
+				if m.DisplayedRoom == nil {
+					return m, nil
+				}
+
+				if m.DisplayedRoom.CanLeave() {
 					return m, func() tea.Msg {
-						return messages.LeftRoomMsg{
-							Roomname: m.DisplayedRoom.Name,
-						}
+						return messages.LeaveRoomPetition{Roomname: m.DisplayedRoom.Name}
+					}
+				}
+
+			case "l":
+				if m.DisplayedRoom == nil {
+					return m, nil
+				}
+
+				if m.DisplayedRoom.CanLeave() {
+					return m, func() tea.Msg {
+						roomUsers, _ := protocol.RoomUsersMessage(m.DisplayedRoom.Name)
+						return roomUsers
 					}
 				}
 			}
@@ -129,18 +154,29 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 		case tea.KeyEsc:
 			m.TextInput.Blur()
 			return m, nil
+
 		case tea.KeyEnter:
 			if !m.TextInput.Focused() {
 				cmd := m.TextInput.Focus()
 				return m, cmd
 			}
+
 			text := strings.TrimSpace(m.TextInput.Value())
+
+			var cmd tea.Cmd
 			if text != "" {
-				chatMessage := domain.ChatMessage{Message: text, Username: m.Username}
-				m.AddMessage(chatMessage)
+				m.AddEntry(
+					m.DisplayedRoom,
+					domain.ChatMessage{
+						Username: m.Username,
+						Message:  text,
+					})
+
+				cmd = m.sendToRoom(text)
 			}
 			m.TextInput.SetValue("")
-			return m, nil
+
+			return m, cmd
 		}
 	}
 
@@ -161,7 +197,7 @@ func (m ChatModel) View() string {
 	boxStyle := styles.BoxStyle.Width(m.width).Height(m.height)
 	roomName := ""
 	if m.DisplayedRoom != nil {
-		roomName = m.DisplayedRoom.Name
+		roomName = m.DisplayedRoom.Title()
 	}
 	header := styles.ChatNameStyle.Width(m.width - 2).Render(roomName)
 
@@ -180,4 +216,24 @@ func (m ChatModel) View() string {
 	}
 
 	return boxStyle.Render(header + "\n" + viewportContent + "\n" + messageBarStyle.Render(m.TextInput.View()))
+}
+
+func (m *ChatModel) sendToRoom(text string) tea.Cmd {
+	if m.DisplayedRoom == nil {
+		return nil
+	}
+
+	var clientMsg protocol.ClientMessage
+	switch m.DisplayedRoom.Kind() {
+	case domain.RoomGlobal:
+		clientMsg, _ = protocol.PublicTextMessage(text)
+	case domain.RoomDM:
+		clientMsg, _ = protocol.TextMessage(m.DisplayedRoom.TargetUser(), text)
+	case domain.RoomChannel:
+		clientMsg, _ = protocol.RoomTextMessage(m.DisplayedRoom.Name, text)
+	default:
+		return nil
+	}
+
+	return func() tea.Msg { return clientMsg }
 }

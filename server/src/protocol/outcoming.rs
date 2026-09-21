@@ -20,7 +20,7 @@ pub enum TypeS2C {
         status: Status,
     },
     UserList {
-        usernames: HashMap<String, Status>,
+        users: HashMap<String, Status>,
     },
     TextFrom {
         username: String,
@@ -36,7 +36,7 @@ pub enum TypeS2C {
     },
     RoomUserList {
         roomname: String,
-        usernames: HashMap<String, Status>,
+        users: HashMap<String, Status>,
     },
     RoomTextFrom {
         roomname: String,
@@ -65,8 +65,8 @@ impl TypeS2C {
         Self::NewStatus { username, status }
     }
 
-    pub fn user_list_message(usernames: HashMap<String, Status>) -> Self {
-        Self::UserList { usernames }
+    pub fn user_list_message(users: HashMap<String, Status>) -> Self {
+        Self::UserList { users }
     }
 
     pub fn text_from_message(username: String, text: String) -> Self {
@@ -81,11 +81,8 @@ impl TypeS2C {
         Self::JoinedRoom { username, roomname }
     }
 
-    pub fn room_user_list_message(roomname: String, usernames: HashMap<String, Status>) -> Self {
-        Self::RoomUserList {
-            roomname,
-            usernames,
-        }
+    pub fn room_user_list_message(roomname: String, users: HashMap<String, Status>) -> Self {
+        Self::RoomUserList { roomname, users }
     }
 
     pub fn room_text_from_message(roomname: String, username: String, text: String) -> Self {

@@ -171,7 +171,7 @@ where
             };
 
             println!("Current users {:?}", usernames);
-            send_msg(writer, TypeS2C::UserList { usernames }).await;
+            send_msg(writer, TypeS2C::UserList { users: usernames }).await;
 
             {
                 let hub = _hub.lock().unwrap();
@@ -214,7 +214,7 @@ where
         hub.usernames()
     };
 
-    send_msg(writer, TypeS2C::UserList { usernames: users }).await
+    send_msg(writer, TypeS2C::UserList { users: users }).await
 }
 
 /// Maneja el mensaje STATUS.
@@ -506,7 +506,7 @@ where
         Ok(usernames) => {
             let msg = TypeS2C::RoomUserList {
                 roomname: roomname.to_string(),
-                usernames,
+                users: usernames,
             };
 
             send_msg(writer, msg).await;

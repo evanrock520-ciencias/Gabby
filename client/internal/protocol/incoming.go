@@ -20,4 +20,5 @@ const (
 type ServerMessage struct {
 	Type TypeS2C `json:"type,omitempty"`
 	Message
+	Response
 }
