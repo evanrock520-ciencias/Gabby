@@ -32,3 +32,11 @@ type ShowRoomUserlist struct {
 }
 
 func (msg ShowRoomUserlist) isInternal() {}
+
+type ShowNotification struct {
+	Prompt       string
+	Notification string
+	IsFatal      bool
+}
+
+func (msg ShowNotification) isInternal() {}

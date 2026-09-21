@@ -164,13 +164,13 @@ func (m *Model) handleDisconnected(msg protocol.ServerMessage) tea.Cmd {
 func (m *Model) routeResponse(msg protocol.ServerMessage) tea.Cmd {
 	switch msg.Operation {
 	case protocol.IDENTIFY:
-		m.handleIdentifyResponse(msg)
+		return m.handleIdentifyResponse(msg)
 
 	case protocol.NEW_ROOM:
-		m.handleNewRoomResponse(msg)
+		return m.handleNewRoomResponse(msg)
 
 	case protocol.JOIN_ROOM:
-		m.handleJoinRoomResponse(msg)
+		return m.handleJoinRoomResponse(msg)
 	}
 
 	return nil
@@ -182,6 +182,12 @@ func (m *Model) handleIdentifyResponse(msg protocol.ServerMessage) tea.Cmd {
 		m.closeModal()
 		m.SetUsername(msg.Extra)
 		return nil
+	}
+
+	if msg.Result == protocol.USER_ALREADY_EXISTS {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The user %s already exists", msg.Extra), IsFatal: true}
+		}
 	}
 
 	return nil

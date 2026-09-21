@@ -84,6 +84,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.activeModal != nil {
 			updatedModal, cmd := m.activeModal.Update(msg)
 			m.activeModal = updatedModal
+			if !m.activeModal.IsCapturingInput() {
+				m.closeModal()
+			}
+
 			return m, cmd
 		}
 		m.chatModel, cmd = m.chatModel.Update(msg)
@@ -97,7 +101,7 @@ func (m *Model) openModal(modal panels.Modal) tea.Cmd {
 	m.chatModel.Blur()
 	cmd := modal.Focus()
 	m.activeModal = modal
-	return cmd
+	return tea.Batch(cmd, modal.Init())
 }
 
 func (m *Model) setFocus(newFocus Focus) tea.Cmd {
@@ -185,17 +189,22 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		}, func() tea.Msg {
 			return nil
 		}))
+
 	case "1":
 		return m.setFocus(Rooms)
+
 	case "2":
 		return m.setFocus(Users)
+
 	case "3":
 		return m.setFocus(Chat)
+
 	case "c":
 		return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) tea.Msg {
 			room, _ := protocol.NewRoomMessage(value)
 			return room
 		}, true))
+
 	case "i":
 		return m.openModal(panels.NewWizardModal(
 			func(store *panels.WizardStore) []panels.Modal {
@@ -217,6 +226,7 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 				return invite
 			},
 		))
+
 	case "s":
 		return func() tea.Msg {
 			status, _ := protocol.StatusMessage(m.session.CurrentUser.Status.Next())
@@ -224,8 +234,10 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		}
 	case "tab":
 		m.setFocus(m.focus.Next())
+
 	case "shift+tab":
 		m.setFocus(m.focus.Prev())
+
 	default:
 		var cmd tea.Cmd
 		switch m.focus {
@@ -366,6 +378,13 @@ func (m *Model) handleInternalMsg(msg messages.InternalMsg) tea.Cmd {
 		return m.openModal(panels.NewListModal(fmt.Sprintf("Users in %s", msg.Roomname), userItems(msg.Users), false, func(values []string) tea.Msg {
 			return nil
 		}))
+
+	case messages.ShowNotification:
+		if m.activeModal != nil {
+			m.closeModal()
+		}
+
+		return m.openModal(panels.NewNotificationModal(msg.Prompt, msg.Notification, msg.IsFatal))
 	}
 
 	return nil
