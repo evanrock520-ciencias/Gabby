@@ -171,6 +171,24 @@ func (m *Model) routeResponse(msg protocol.ServerMessage) tea.Cmd {
 
 	case protocol.JOIN_ROOM:
 		return m.handleJoinRoomResponse(msg)
+
+	case protocol.TEXT:
+		return m.handleTextResponse(msg)
+
+	case protocol.INVITE:
+		return m.handleInviteResponse(msg)
+
+	case protocol.ROOM_USERS:
+		return m.handleRoomUserResponse(msg)
+
+	case protocol.ROOM_TEXT:
+		return m.handleRoomTextResponse(msg)
+
+	case protocol.LEAVE_ROOM:
+		return m.handleLeaveRoomResponse(msg)
+
+	case protocol.INVALID_OPERATION:
+		return m.handleInvalidResponse(msg)
 	}
 
 	return nil
@@ -195,6 +213,12 @@ func (m *Model) handleIdentifyResponse(msg protocol.ServerMessage) tea.Cmd {
 
 // handleNewRoomResponse Verifica que se creó una sala exitosamente.
 func (m *Model) handleNewRoomResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.ROOM_ALREADY_EXISTS {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The room %s already exists", msg.Extra), IsFatal: false}
+		}
+	}
+
 	if msg.Result == protocol.SUCCESS {
 		m.closeModal()
 
@@ -202,16 +226,121 @@ func (m *Model) handleNewRoomResponse(msg protocol.ServerMessage) tea.Cmd {
 		m.roomsModel.AddItem(NewRoomItem(room))
 	}
 
-	// TODO: Quizás añadir notificaciones modales.
 	return nil
 }
 
 // handleJoinRoomResponse Verifica la unión a una sala
 func (m *Model) handleJoinRoomResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NO_SUCH_ROOM {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The room %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	if msg.Result == protocol.NOT_INVITED {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("You were not invited to the room %s", msg.Extra), IsFatal: false}
+		}
+	}
+
 	if msg.Result == protocol.SUCCESS {
 		room := m.session.AddRoom(domain.RoomChannel, msg.Extra)
 		m.roomsModel.AddItem(NewRoomItem(room))
 	}
+
 	m.closeModal()
+
 	return nil
+}
+
+// handleTextResponse notifica usuario inválido al mandar DM.
+func (m *Model) handleTextResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NO_SUCH_USER {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The user %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	return nil
+}
+
+// handleInviteResponse notifica sala o usuario inválido al invitar a salas.
+func (m *Model) handleInviteResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NO_SUCH_ROOM {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The room %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	if msg.Result == protocol.NO_SUCH_USER {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The user %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	return nil
+}
+
+// handleRoomUserResponse notifica sala inválida o acceso inválido al pedir la lista de usuarios.
+func (m *Model) handleRoomUserResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NO_SUCH_ROOM {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The room %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	if msg.Result == protocol.NOT_JOINED {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("You are not a member of %s", msg.Extra), IsFatal: false}
+		}
+	}
+
+	return nil
+}
+
+// handleRoomTextResponse notifica sala inválida o acceso inválido al pedir al mandar mensajes a salas.
+func (m *Model) handleRoomTextResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NO_SUCH_ROOM {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The room %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	if msg.Result == protocol.NOT_JOINED {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("You are not a member of %s", msg.Extra), IsFatal: false}
+		}
+	}
+
+	return nil
+}
+
+// handleLeaveRoomResponse notifica sala inválida o acceso inválido al salir de salas.
+func (m *Model) handleLeaveRoomResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NO_SUCH_ROOM {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("The room %s does not exist", msg.Extra), IsFatal: false}
+		}
+	}
+
+	if msg.Result == protocol.NOT_JOINED {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "An error has ocurred", Notification: fmt.Sprintf("You are not a member of %s", msg.Extra), IsFatal: false}
+		}
+	}
+
+	return nil
+}
+
+// handle notifica mensajes inválidos y manda señal de terminar el programa.
+func (m *Model) handleInvalidResponse(msg protocol.ServerMessage) tea.Cmd {
+	if msg.Result == protocol.NOT_IDENTIFIED {
+		return func() tea.Msg {
+			return messages.ShowNotification{Prompt: "Fatal Error", Notification: "You are not identified with the server", IsFatal: true}
+		}
+	}
+
+	return func() tea.Msg {
+		return messages.ShowNotification{Prompt: "Fatal Error", Notification: "Invalid message received by the server", IsFatal: true}
+	}
 }

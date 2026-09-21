@@ -8,18 +8,19 @@ import (
 type TypeC2S string
 
 const (
-	IDENTIFY    TypeC2S = "IDENTIFY"
-	STATUS      TypeC2S = "STATUS"
-	USERS       TypeC2S = "USERS"
-	TEXT        TypeC2S = "TEXT"
-	PUBLIC_TEXT TypeC2S = "PUBLIC_TEXT"
-	NEW_ROOM    TypeC2S = "NEW_ROOM"
-	INVITE      TypeC2S = "INVITE"
-	JOIN_ROOM   TypeC2S = "JOIN_ROOM"
-	ROOM_USERS  TypeC2S = "ROOM_USERS"
-	ROOM_TEXT   TypeC2S = "ROOM_TEXT"
-	LEAVE_ROOM  TypeC2S = "LEAVE_ROOM"
-	DISCONNECT  TypeC2S = "DISCONNECT"
+	IDENTIFY          TypeC2S = "IDENTIFY"
+	STATUS            TypeC2S = "STATUS"
+	USERS             TypeC2S = "USERS"
+	TEXT              TypeC2S = "TEXT"
+	PUBLIC_TEXT       TypeC2S = "PUBLIC_TEXT"
+	NEW_ROOM          TypeC2S = "NEW_ROOM"
+	INVITE            TypeC2S = "INVITE"
+	JOIN_ROOM         TypeC2S = "JOIN_ROOM"
+	ROOM_USERS        TypeC2S = "ROOM_USERS"
+	ROOM_TEXT         TypeC2S = "ROOM_TEXT"
+	LEAVE_ROOM        TypeC2S = "LEAVE_ROOM"
+	DISCONNECT        TypeC2S = "DISCONNECT"
+	INVALID_OPERATION TypeC2S = "INVALID"
 )
 
 type ClientMessage struct {
