@@ -69,3 +69,28 @@ func (room RoomItem) Render(state panels.ItemState, width int) string {
 		return styles.TextStyle.Width(width).Render(" # " + room.Value())
 	}
 }
+
+type GlobalRoomItem struct {
+	*domain.Room
+}
+
+func NewGlobalRoomItem(room *domain.Room) GlobalRoomItem {
+	return GlobalRoomItem{Room: room}
+}
+
+func (room GlobalRoomItem) Value() string {
+	return domain.GlobalRoomID
+}
+
+func (room GlobalRoomItem) Render(state panels.ItemState, width int) string {
+	switch state {
+	case panels.ItemSelected:
+		return styles.SelectedStyle.Width(width).Render(" ✦ " + room.Name)
+	case panels.ItemChosen:
+		return styles.ChosenStyle.Width(width).Render(" ✦ " + room.Name)
+	case panels.ItemBoth:
+		return styles.ChosenStyle.Bold(true).Width(width).Render(" ✦ " + room.Name)
+	default:
+		return styles.TextStyle.Width(width).Render(" ✦ " + room.Name)
+	}
+}

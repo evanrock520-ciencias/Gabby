@@ -26,11 +26,7 @@ func main() {
 	conn.Dial(port)
 	go conn.Listen()
 
-	session := domain.SessionState{
-		Users: []domain.User{},
-		Rooms: make(map[string]*domain.Room),
-		DMs:   make(map[string]*domain.Room),
-	}
+	session := domain.NewSessionState(domain.User{})
 
 	p := tea.NewProgram(ui.NewModel(session, &conn), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

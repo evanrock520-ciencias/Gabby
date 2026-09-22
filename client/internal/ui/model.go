@@ -150,15 +150,14 @@ func (m Model) View() string {
 
 // Función para poblar los datos de la interfaz
 func NewModel(session domain.SessionState, conn *network.ConnectionManager) Model {
-	globalRoom := session.AddRoom(domain.RoomGlobal, "Global")
-
 	usersModel := panels.NewListModel("[2] Users", userItems(session.Users), func(value string) tea.Msg {
 		return messages.EnterDM{Username: value}
 	})
-	roomsModel := panels.NewListModel("[1] Rooms", roomItems(session.Rooms), func(value string) tea.Msg {
+	initialRooms := append([]panels.Item{NewGlobalRoomItem(session.Global)}, roomItems(session.Rooms)...)
+	roomsModel := panels.NewListModel("[1] Rooms", initialRooms, func(value string) tea.Msg {
 		return messages.EnterRoom{Roomname: value}
 	})
-	chatModel := panels.NewChatModel(globalRoom, session.CurrentUser.Username)
+	chatModel := panels.NewChatModel(session.Global, session.CurrentUser.Username)
 	footerModel := panels.NewFooterModel("", domain.ACTIVE)
 	loginModel := panels.NewInputModal("Login", "Username", 8, func(value string) tea.Msg {
 		msg, _ := protocol.IdentifyMessage(value)
@@ -206,6 +205,12 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 		}, true))
 
 	case "i":
+		if len(m.session.Rooms) == 0 {
+			return func() tea.Msg {
+				return messages.ShowNotification{Prompt: "Notice", Notification: "You haven't joined any channel yet to invite users", IsFatal: false}
+			}
+		}
+
 		return m.openModal(panels.NewWizardModal(
 			func(store *panels.WizardStore) []panels.Modal {
 				return []panels.Modal{
@@ -220,8 +225,11 @@ func (m *Model) handleNavegation(msg tea.KeyMsg) tea.Cmd {
 				}
 			},
 			func(store panels.WizardStore) tea.Msg {
-				rooms, _ := store.Get("room") // Solo hay un elemento porque viene de un uniselector
-				users, _ := store.Get("users")
+				rooms, okRooms := store.Get("room")
+				users, okUsers := store.Get("users")
+				if !okRooms || len(rooms) == 0 || !okUsers || len(users) == 0 {
+					return nil
+				}
 				invite, _ := protocol.InviteMessage(rooms[0], users)
 				return invite
 			},
@@ -352,6 +360,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleInternalMsg(msg messages.InternalMsg) tea.Cmd {
 	switch msg := msg.(type) {
 	case messages.EnterRoom:
+		if msg.Roomname == domain.GlobalRoomID {
+			m.chatModel.SetRoom(m.session.Global)
+			m.setFocus(Chat)
+			return m.chatModel.Focus()
+		}
 		room, ok := m.session.GetRoom(msg.Roomname)
 		if ok {
 			m.chatModel.SetRoom(room)

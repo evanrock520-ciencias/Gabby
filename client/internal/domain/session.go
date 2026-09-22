@@ -5,6 +5,7 @@ import "slices"
 type SessionState struct {
 	Users       []User
 	Rooms       map[string]*Room
+	Global      *Room
 	DMs         map[string]*Room
 	CurrentUser User
 }
@@ -13,6 +14,7 @@ func NewSessionState(currentUser User) SessionState {
 	return SessionState{
 		Users:       []User{},
 		Rooms:       make(map[string]*Room),
+		Global:      NewGlobalRoom(),
 		DMs:         make(map[string]*Room),
 		CurrentUser: currentUser,
 	}
