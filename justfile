@@ -33,11 +33,11 @@ lint-server:
 
 lint: lint-client lint-server
 
-run-client: build-client
-    cd client && ./bin/client
+run-client arg: build-client
+    cd client && ./bin/client {{arg}}
 
-run-server: build-server
-    cd server && cargo run
+run-server arg: build-server
+    cd server && cargo run {{arg}}
 
 clean-client:
     cd client && rm -rf ./bin
