@@ -10,7 +10,7 @@ export const options = {
  */
 export default async function () {
   const host = __ENV.TCP_ECHO_HOST || "localhost";
-  const port = __ENV.TCP_ECHO_PORT || "8080";
+  const port = __ENV.TCP_ECHO_PORT || "9090";
   const id = __VU
   const messages = 5
 
@@ -27,22 +27,27 @@ export default async function () {
     console.error("Error:", err);
   });
 
-socket.on("data", (data) => {
-   const response = String.fromCharCode.apply(null, new Uint8Array(data));
-   socket.destroy();
-});
+  socket.on("data", (data) => {
+  });
 
-  await socket.connect(port, host);
-  console.log(`"User ${id} Connected!"`);
+  try {
+    await socket.connect(port, host);
 
-  await socket.write(`{"type":"IDENTIFY", "username":"u${id}"}\n`)
+    await socket.write(`{"type":"IDENTIFY", "username":"u${id}"}\n`);
 
-  const writes = [];
-  for (let i = 0; i < messages; i++) {
-    writes.push(socket.write(`{"type":"PUBLIC_TEXT", "text":"u${id} send a message for the ${i} time"}\n`));
+    const writes = []
+    for (let i = 0; i < messages; i++) {
+      writes.push(socket.write(`{"type":"PUBLIC_TEXT", "text":"u${id} send a message for the ${i} time"}\n`));
+    }
+
+    await Promise.all(writes);
+
+    await socket.write(`{"type":"DISCONNECT"}\n`);
+    socket.destroy();
+
+    await closed;
+  } catch (err) {
+    console.error(`User ${id} caught error:`, err);
+    socket.destroy();
   }
-
-  await Promise.all(writes);
-
-  await closed;
 }
