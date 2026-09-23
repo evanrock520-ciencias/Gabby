@@ -10,9 +10,7 @@
 
 **Gabby** es un proyecto de mensajería personal por terminal con arquitectura cliente-servidor. Es desarrollado como primer proyecto del curso "**Modelado y Programación**" de la **Facultad de Ciencias, UNAM**.
 
-<img src="https://vhs.charm.sh/vhs-7rPgbW6XvcfPrvAnGZ7I5a.gif" alt="Made with VHS">
-  <a href="https://vhs.charm.sh">
-  </a>
+<img src="https://vhs.charm.sh/vhs-5xmPoBCldYZbJIvC5UMC5B.gif" alt="Made with VHS">
 
 ## Cliente
 
