@@ -1,2 +1,40 @@
 \section{Análisis y Diseño}
-Este es el contenido del análisis y el diseño.
+
+El \textbf{Chat Multicliente} puede dividirse fundamentalmente en dos programas independientes:
+\textbf{cliente} y \textbf{servidor}. La comunicación entre ambas partes se realiza con \textbf{JSON}
+sobre \textbf{TCP} por medio del protocolo establecido en el curso. El protocolo cuenta con \textbf{23}
+mensajes establecidos, más un mensaje genérico de respuesta por parte del servidor.
+
+\subsection*{Cliente}
+
+El cliente se diseñó para ser desarrollado en el lenguaje de programación \textbf{Golang}, utilizando 
+la librería \textbf{Bubble Tea} para la interfaz de terminal. Esta decisión se tomó de manera previa
+al análisis de la especificación del proyecto, pues estaba realmente entusiasmado en utilizar la 
+librería para algún proyecto. En consecuencia, \textbf{Gabby} adopta la \textbf{Arquitectura ELM}(\textit{Model-Update-View})
+como arquitectura principal. 
+
+La \textbf{Arquitectura ELM} surge en la comunidad del lenguaje de programación funcional \textbf{ELM}
+como una manera de estructurar interfaces gráficas reactivas y funcionales. Se compone de tres elementos:
+
+\begin{description}[leftmargin=2.2cm, style=nextline, font=\bfseries]
+    \item[Modelo] Representa el estado actual de la aplicación.
+    \item[Update] Ciclo que actualiza el Modelo a partir de mensajes recibidos.
+    \item[Vista] Una fotografía (\textit{snapshot}) del estado en un momento dado.
+\end{description}
+
+Generalmente, las aplicaciones realizadas a partir de la \textbf{Arquitectura ELM} cuentan con un modelo 
+raíz que encapsula varios submodelos. Cada submodelo se encarga de la lógica de una parte específica y
+delimitada de la interfaz manteniendo su propio estado, su propia función de actualización y su propia vista. 
+El modelo raíz orquesta estos submodelos: delega los mensajes correspondientes a cada uno, integra sus vistas parciales 
+en la vista general de la aplicación, y coordina la comunicación entre ellos cuando es necesario.
+
+% TODO: Explicar el modelado de los paneles.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{landing.pdf}
+    \caption{Mockup de la interfaz de terminal del cliente.}
+    \label{fig:mockup-cliente}
+\end{figure}
+
+\subsection*{Servidor}
