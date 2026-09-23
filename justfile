@@ -33,10 +33,10 @@ lint-server:
 
 lint: lint-client lint-server
 
-run-client arg: build-client
+run-client arg="127.0.0.1:9090": build-client
     cd client && ./bin/client {{arg}}
 
-run-server arg: build-server
+run-server arg="127.0.0.1:9090": build-server
     cd server && cargo run {{arg}}
 
 clean-client:
