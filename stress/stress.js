@@ -1,8 +1,20 @@
+import { sleep } from "k6";
 import { Socket } from "k6/x/tcp";
 
 export const options = {
-  vus: 512
-}
+  stages: [
+    { duration: "10s", target: 500 },
+    { duration: "15s", target: 1000 },
+    { duration: "15s", target: 1500 },
+    { duration: "20s", target: 2000 },
+    { duration: "20s", target: 2500},
+    { duration: "20s", target: 3000},
+    { duration: "20s", target: 3500},
+    { duration: "20s", target: 4000},
+    { duration: "30s", target: 5000},
+    { duration: "10s", target: 0 },
+  ],
+};
 
 /**
  * Corre pruebas de estrés con m usuarios. El flujo es registrarse, mandar n mensajes públicos
@@ -42,8 +54,14 @@ export default async function () {
 
     await Promise.all(writes);
 
+    sleep(10);
+
     await socket.write(`{"type":"DISCONNECT"}\n`);
-    socket.destroy();
+
+    await Promise.race([
+      closed,
+      new Promise((resolve) => setTimeout(resolve, 2000)).then(() => socket.destroy()),
+    ]);
 
     await closed;
   } catch (err) {
