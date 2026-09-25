@@ -51,4 +51,4 @@ docs:
     cd docs/report && latexmk -pdf -interaction=nonstopmode main.tex
 
 stress:
-    k6 run stress/stress.js
+    ulimit -n 65535 && k6 run stress/stress.js
