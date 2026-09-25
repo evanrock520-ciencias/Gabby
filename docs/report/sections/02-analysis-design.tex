@@ -8,19 +8,24 @@ mensajes establecidos, más un mensaje genérico de respuesta por parte del serv
 \subsection*{Cliente}
 
 El cliente se diseñó para ser desarrollado en el lenguaje de programación \textbf{Golang}, utilizando 
-la librería \textbf{Bubble Tea} para la interfaz de terminal. Esta decisión se tomó de manera previa
+la biblioteca \textbf{Bubble Tea} para la interfaz de terminal. Esta decisión se tomó de manera previa
 al análisis de la especificación del proyecto, pues estaba realmente entusiasmado en utilizar la 
-librería para algún proyecto. En consecuencia, \textbf{Gabby} adopta la \textbf{Arquitectura ELM}(\textit{Model-Update-View})
+biblioteca para algún proyecto. En consecuencia, \textbf{Gabby} adopta la \textbf{Arquitectura ELM}(\textit{Model-Update-View})
 como arquitectura principal. 
 
 La \textbf{Arquitectura ELM} surge en la comunidad del lenguaje de programación funcional \textbf{ELM}
-como una manera de estructurar interfaces gráficas reactivas y funcionales. Se compone de tres elementos:
+como una manera de estructurar interfaces gráficas reactivas y funcionales. Se compone de estos tres elementos:
 
 \begin{description}[leftmargin=2.2cm, style=nextline, font=\bfseries]
     \item[Modelo] Representa el estado actual de la aplicación.
     \item[Update] Ciclo que actualiza el Modelo a partir de mensajes recibidos.
-    \item[Vista] Una fotografía (\textit{snapshot}) del estado en un momento dado.
+    \item[Vista] Una fotografía del estado en un momento dado.
 \end{description}
+
+La arquitectura mantiene un flujo de datos unidireccional: \textbf{Modelo} $\Rightarrow$ \textbf{Update} $\Rightarrow$ 
+\textbf{Vista}  $\Rightarrow$ \textbf{Modelo}. Y permite la comunicación entre componentes y etapas gracias a dos abstracciones: 
+los \textbf{mensajes}, tipos de datos que notifican la ocurrencia de eventos, y los \textbf{comandos}, indicaciones para 
+ejecutar acciones con efectos secundarios.
 
 Generalmente, las aplicaciones realizadas a partir de la \textbf{Arquitectura ELM} cuentan con un modelo 
 raíz que encapsula varios submodelos. Cada submodelo se encarga de la lógica de una parte específica y
@@ -28,7 +33,21 @@ delimitada de la interfaz manteniendo su propio estado, su propia función de ac
 El modelo raíz orquesta estos submodelos: delega los mensajes correspondientes a cada uno, integra sus vistas parciales 
 en la vista general de la aplicación, y coordina la comunicación entre ellos cuando es necesario.
 
-% TODO: Explicar el modelado de los paneles.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{flow.pdf}
+    \caption{Flujo de datos de la arquitectura ELM}
+    \label{fig:elm-flow} 
+\end{figure}
+
+\subsubsection*{Interfaz}
+
+La interfaz de \textbf{Gabby} está fuertemente inspirada en interfaces de terminal populares, como \textbf{Lazygit} y \textbf{Lazydocker}. 
+Por lo tanto, tanto la experiencia de usuario como el diseño visual retoman los recursos característicos de esta filosofía, es decir: 
+distribución de la información en paneles, formularios modales para la captura de datos, y una navegación por atajos de teclado modal y 
+basada en aspectos mnemotécnicos.
+
+Esto es bastante visible en la figura \ref{fig:mockup-cliente}. En ella podemos observar varias de las características antes mencionadas.
 
 \begin{figure}[h]
     \centering
@@ -36,5 +55,112 @@ en la vista general de la aplicación, y coordina la comunicación entre ellos c
     \caption{Mockup de la interfaz de terminal del cliente.}
     \label{fig:mockup-cliente}
 \end{figure}
+
+La vista principal se compone de cuatro paneles persistentes organizados en pantalla:
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lp{11cm}}
+        \textbf{Panel} & \textbf{Descripción} \\
+        \textbf{Panel de cuartos} & Permite visualizar las salas a las que pertenece el usuario. \\
+        \textbf{Panel de usuarios} & Despliega la lista de usuarios conectados en el servidor. \\
+        \textbf{Panel de chat} & Es el panel principal de la aplicación. Contiene un \textit{viewport} para el scroll y visualización de texto, y un \textit{textinput} para manejar el envío de mensajes. \\
+        \textbf{Footer contextual} & Ubicado en la parte inferior de la pantalla, actualiza dinámicamente los atajos de teclado disponibles y muestra el estado actual del cliente. \\
+    \end{tabular}
+    \caption{Componentes de la vista principal del cliente.}
+    \label{tab:paneles-cliente}
+\end{table}
+
+Además, para realizar la captura de datos y decisiones del cliente se opta por utilizar vistas \textbf{modales}. Es decir, interfaces superpuestas 
+al contenido principal que bloquean temporalmente la interacción con el resto de la aplicación hasta que el usuario realiza una acción o la cierra. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lp{11cm}}
+        \textbf{Modal} & \textbf{Descripción} \\
+        \textbf{Input Modal} & Captura cadenas de texto del usuario. \\
+        \textbf{List Modal} & Permite la selección simple o múltiple de los items mostrados por una lista. \\
+        \textbf{Confirm Modal} & Permite ejecutar operaciones binarias excluyentes. \\
+        \textbf{Notification Modal} & Despliega mensajes de notificación. \\
+        \textbf{Wizard Modal} & Presenta flujos secuenciales de múltiples pasos con estado compartido. \\
+    \end{tabular}
+    \caption{Modales utilizados en el cliente.}
+    \label{tab:modales-cliente}
+\end{table}
+
+El diseño de la interfaz de \textbf{Gabby} utiliza paneles genéricos embebidos en el \textbf{Modelo}
+principal. De esta manera se desacoplan los tipos de datos de \textbf{dominio} de la lógica visual,
+permitiendo, por ejemplo, reutilizar componentes entre distintos paneles. Esto se puede observar en el
+diagrama de la figura \ref{fig:panels-uml} con el modelo de lista y los paneles tanto de usuarios como
+de salas.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{panels.pdf}
+    \caption{Diagrama UML de la organización de paneles.}
+    \label{fig:panels-uml}
+\end{figure}
+
+Además, el diseño se simplifica gracias a los componentes prefabricados de \textbf{Bubbles}, la
+biblioteca hermana de \textbf{Bubble Tea}. Específicamente, \textbf{Bubbles} ofrece tres componentes
+esenciales para \textbf{Gabby}: \textbf{viewport} (permite el scroll del historial de mensajes), \textbf{textinput} 
+(maneja la captura de texto) y \textbf{footer}, convirtiendo a algunos de los modelos principales en, básicamente, 
+\textit{wrappers} sobre estos componentes.
+
+La interacción de los modales con la vista principal depende de la implementación de la interfaz
+\textbf{Modal}. El polimorfismo de modales permite abstraer su comportamiento común y simplificar la
+visualización y el control de cada tipo de panel modal. Principalmente, nos permite modelar la interfaz
+como una máquina de estados, donde la existencia de un \texttt{CurrentModal} activo determina el estado
+de \textbf{captura}: mientras un modal esté presente, el modelo raíz le delega la totalidad de los
+mensajes de entrada, secuestrando el control de la interfaz hasta que el modal se resuelve y \texttt{CurrentModal} vuelve a quedar vacío.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{modals.pdf}
+    \caption{Diagrama UML de la organización de modales.}
+    \label{fig:modals-uml} 
+\end{figure}
+
+\subsubsection*{Modelos de Dominio}
+
+La presentación de la interfaz depende en gran medida de los datos mostrados. Es bastante intuitivo modelar los datos
+básicos dado el contexto: \textbf{User} y \textbf{Room}. El usuario guarda un username y un estado.
+La sala guarda un roomname, una lista de usuarios y un historial de mensajes (dado que el servidor no tiene persistencia).
+Presisamente por eso, \textbf{Session} almacena en memoria el estado de un cliente, es decir su identidad,
+sus salas disponibles, los usuarios conectados, las salas globales y los mensajes privados.
+
+\subsubsection*{Capa de Red}
+
+Cualquier aplicación de terminal realizada con \textbf{Bubble Tea} opera en un único hilo de
+renderizado. Por lo tanto, intentar leer el socket TCP mediante el mismo hilo de ejecución provocaría
+que la aplicación se bloqueara por completo. 
+
+\textbf{Go} tiene un principio bastante interesante acerca de la comunicación asíncrona: \textit{``Do not 
+communicate by sharing memory; instead, share memory by communicating''}. Esto se logra a través de canales 
+que permiten para pasar referencias a datos entre goroutines.
+
+De está manera podemos utilizar una goroutine independiente para leer los datos del socket, comunicar las lecturas
+a un canal y utilizar los \textbf{cmd} de \textbf{Bubble Tea} para inyectar los \textbf{messages} en la función 
+\textbf{Update} del Modelo raíz. Este flujo se puede observar de mejor manera en el diagrama \ref{fig:conn}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{conn.pdf}
+    \caption{Diagrama de secuencia de la interacción por red.}
+    \label{fig:conn} 
+\end{figure}
+
+\subsubsection*{Enrutamiento}
+
+El método \textbf{Update} del modelo raíz centraliza el despacho de eventos clasificandolos en tres dominios principales.
+
+\begin{description}[leftmargin=2.2cm, style=nextline, font=\bfseries]
+    \item[Mensajes del Servidor] Representa los mensajes y respuestas entrantes del servidor.
+    \item[Mensajes del Cliente] Representa los mensajes enviados por el cliente.
+    \item[Mensajes Internos] Representa mensajes de cambio interno en la interfaz.
+\end{description}
+
+Cada uno de ellos cuenta con un \textbf{Router} que mapea cada tipo de mensaje a una función \textit{handler}.
+
 
 \subsection*{Servidor}
