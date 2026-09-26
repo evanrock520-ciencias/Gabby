@@ -35,7 +35,7 @@ en la vista general de la aplicación, y coordina la comunicación entre ellos c
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{flow.pdf}
+    \includegraphics[width=0.6\textwidth]{flow.pdf}
     \caption{Flujo de datos de la arquitectura ELM}
     \label{fig:elm-flow} 
 \end{figure}
@@ -152,7 +152,7 @@ a un canal y utilizar los \textbf{cmd} de \textbf{Bubble Tea} para inyectar los 
 
 \subsubsection*{Enrutamiento}
 
-El método \textbf{Update} del modelo raíz centraliza el despacho de eventos clasificandolos en tres dominios principales.
+El método \textbf{Update} del modelo raíz centraliza el despacho de eventos clasificándolos en tres dominios principales.
 
 \begin{description}[leftmargin=2.2cm, style=nextline, font=\bfseries]
     \item[Mensajes del Servidor] Representa los mensajes y respuestas entrantes del servidor.
@@ -164,3 +164,98 @@ Cada uno de ellos cuenta con un \textbf{Router} que mapea cada tipo de mensaje a
 
 
 \subsection*{Servidor}
+
+\textbf{Fearless Concurrency} es el principio fundamental de la elección del lenguaje de programación
+\textbf{Rust} para el desarrollo del servidor. Muchas de las implementaciones de seguridad de memoria
+que incluye el lenguaje, mediante su sistema de \textit{ownership} y \textit{borrowing} permiten transformar 
+errores en tiempo de ejecución a errores en tiempo de compilación. De esta manera, \textit{data races} y 
+otros errores comunes en programación concurrente, que en otros lenguajes solo se manifiestan durante la ejecución,
+son detectados por el compilador antes de que el programa siquiera se ejecute. Esto permite escribir código
+concurrente con la confianza de que, si compila, está libre de una clase entera de errores que tradicionalmente son 
+difíciles de depurar y reproducir.
+
+El modelo de programación asíncrona de \textbf{Rust} presenta una particularidad importante:
+tanto la sintaxis \texttt{async}/\texttt{await} como el trait \texttt{Future} están definidos
+a nivel del lenguaje y su biblioteca estándar, pero se trata de implementaciones \textbf{lazy}
+que no se ejecutan por sí solas, ya que \textbf{Rust} no incluye un entorno de ejecución asíncrono.
+Para esto, utilizamos \textbf{Tokio}, el entorno de ejecución asíncrono más popular dentro de la 
+comunidad de \textbf{Rust}. 
+
+El entorno de ejecución de \textbf{Tokio} es bastante rápido debido a su arquitectura basada en un diseño
+modular y de alto rendimiento enfocado en el I/O no bloqueante. Se basa principalmente en el patrón de diseño
+\textbf{Reactor} que permite manejar múltiples \textbf{tasks} en un solo hilo de ejecución, con la ayuda de un 
+\textbf{task scheduler}, un \textbf{I/O Driver} y \textbf{timers} que se comunican directamente con el sistema
+operativo. 
+
+\textbf{Tokio} también ofrece varias abstracciones de alto nivel y macros que permiten trabajar fácilmente la programación
+asíncrona.
+
+\subsubsection*{Arquitectura}
+
+El estado de la aplicación se centraliza en una única estructura de estado global (\texttt{Hub})
+que administra a todos los clientes, salas públicas y salas privadas activas en el servidor.
+Internamente, el \texttt{Hub} almacena estas entidades en diccionarios (\texttt{HashMap}),
+indexados por el nombre de usuario o de sala, lo que permite consultas en tiempo $O(1)$ amortizado.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{hub.pdf}
+    \caption{Diagrama UML del servidor.}
+    \label{fig:hub} 
+\end{figure}
+
+Además, como puede observarse en el diagrama de la figura \ref{fig:hub}, el \texttt{Hub} funciona
+como mediador entre los múltiples clientes conectados y es el encargado de ejecutar la mayoría de
+las operaciones definidas en el protocolo. De esta manera, no existe comunicación directa entre
+clientes (\textbf{P2P}), ya que toda interacción debe pasar necesariamente a través del \texttt{Hub}.
+
+Las salas mantienen su propio estado internamente, utilizando conjuntos (\texttt{HashSet}) para
+almacenar tanto a sus miembros como a sus invitados. De esta manera, se simplifica la lógica
+encargada de enrutar mensajes y eventos hacia las salas correspondientes.
+
+\subsection*{Conexiones}
+
+Cada vez que entra un nuevo cliente al servidor, \textbf{Tokio} delega la conexión del socket a un \textbf{task}
+independiente, que se encarga de manejar la comunicación con el usuario. El primer paso de la comunicación siempre
+consiste en identificarse; si la tarea verifica la correctitud de la identificación, crea un \textbf{Client} y lo
+registra en el \textbf{Hub}. 
+
+En la figura \ref{fig:hub}, podemos notar que los \textbf{Client} no guardan una referencia del socket, si no que guardan
+un canal MPSC (\textit{Multiple Producer, Single Consumer}). El canal permite desacoplar las tareas de I/O relacionadas al
+socket, y permitir que cada conexión se gestione sola.
+
+Después de la identificación, la \textbf{task} entra en un bucle que multiplexa dos fuentes de eventos
+asíncronos mediante la macro \texttt{tokio::select!}:
+
+\begin{enumerate}
+
+    \item \textbf{Lectura del Socket}: Escucha los mensajes que llegan a través del socket TCP, deserializa el mensaje
+        y lo transfiere al \textbf{enrutador} para ejecutar la acción correspondiente.
+
+    \item \textbf{Lectura del Canal}: Escucha los mensajes entrantes al canal, extra el mensaje y lo transmite por el socket
+        TCP hacia el cliente.
+
+\end{enumerate}
+
+Mediante este mecanismo, el runtime suspende la tarea hasta que alguno de los dos \textit{futures} esté
+listo, procesando de inmediato el primer evento disponible.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{server-flow.pdf}
+    \caption{Diagrama de secuencia del servidor.}
+    \label{fig:server-sequence} 
+\end{figure}
+
+Las \textbf{tasks} necesitan modificar concurrentemente el estado global de la sesión (\textbf{Hub}) 
+para realizar la mayoría de las operaciones del protocolo. Una solución idiomática en \textbf{Rust} 
+para este problema es la combinación \texttt{Arc$<$Mutex$<$Hub$>$$>$}. Por un lado, \texttt{Arc} (\textit{Atomically 
+Reference Counted}) es un apuntador inteligente que permite compartir la propiedad de un mismo dato, 
+en este caso la instancia global del \textbf{Hub}, entre múltiples tareas de forma segura. Por otro lado, 
+\texttt{Mutex}, aunque cumple una función similar a un semáforo en la mayoría de los lenguajes, en 
+\textbf{Rust} se comporta de manera distinta: en lugar de ser un mecanismo externo que protege el acceso 
+a una variable, el \texttt{Mutex} envuelve directamente al dato, de modo que resulta imposible acceder a 
+él o mutarlo sin antes adquirir el cerrojo.
+
+\subsubsection*{Enrutamiento y Protocolo}
+% TODO: Explicar el enrutamiento de los mensajes del protocolo
