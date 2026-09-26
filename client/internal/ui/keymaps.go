@@ -4,21 +4,21 @@ import "github.com/charmbracelet/bubbles/key"
 
 var (
 	modalKeymaps = []key.Binding{
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Confirm")),
+		key.NewBinding(key.WithKeys("↵"), key.WithHelp("↵", "Confirm")),
 		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel")),
+		key.NewBinding(key.WithKeys("space"), key.WithHelp("␣", "Select")),
 	}
 
 	chatInputKeymaps = []key.Binding{
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Send")),
+		key.NewBinding(key.WithKeys("↵"), key.WithHelp("↵", "Send")),
 		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Stop Writing")),
 	}
 
 	commonNavKeymaps = []key.Binding{
 		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "Exit")),
-		key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "Next Panel")),
-		key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "Create Room")),
+		key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "New")),
 		key.NewBinding(key.WithKeys("i"), key.WithHelp("i", "Invite")),
-		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "Change Status")),
+		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "Status")),
 	}
 
 	roomsKeymaps   []key.Binding
@@ -28,22 +28,21 @@ var (
 
 func init() {
 	roomsKeymaps = append(append([]key.Binding{}, commonNavKeymaps...),
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Enter Room")),
+		key.NewBinding(key.WithKeys("↵"), key.WithHelp("↵", "Enter")),
 	)
 
 	usersKeymaps = append(append([]key.Binding{}, commonNavKeymaps...),
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Open DM")),
+		key.NewBinding(key.WithKeys("↵"), key.WithHelp("↵", "Enter")),
 	)
 
 	chatNavKeymaps = append(append([]key.Binding{}, commonNavKeymaps...),
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Write")),
-		key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Leave Room")),
-		key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "Room Users")),
+		key.NewBinding(key.WithKeys("↵"), key.WithHelp("↵", "Write")),
+		key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Leave")),
+		key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "Users")),
 	)
 }
 
 func (m Model) CurrentKeymaps() []key.Binding {
-	// TODO: Embeber keybinds de paneles concretos, no solo la interfaz modal
 	if m.activeModal != nil {
 		return modalKeymaps
 	}

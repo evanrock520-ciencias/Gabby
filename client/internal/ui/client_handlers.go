@@ -93,8 +93,7 @@ func (m *Model) handleLeaveRoom(msg protocol.ClientMessage) tea.Cmd {
 	m.roomsModel.RemoveItem(msg.Roomname)
 
 	if m.chatModel.DisplayedRoom != nil && m.chatModel.DisplayedRoom.Name == msg.Roomname {
-		globalRoom, _ := m.session.GetRoom("Global")
-		m.chatModel.SetRoom(globalRoom)
+		m.chatModel.SetRoom(m.session.Global)
 	}
 
 	return m.sendToServer(msg)

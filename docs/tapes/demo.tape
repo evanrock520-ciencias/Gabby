@@ -1,7 +1,7 @@
 Output "demo.gif"
 Set FontSize 22
 Set Width 1200
-Set Height 1000
+Set Height 800
 Set Padding 20
 Set Theme "Monokai Soda"
 
@@ -30,5 +30,31 @@ Type "This is a demo of the chat"
 Enter
 Sleep 2s
 Escape
+Sleep 1s
+Type "c"
+Sleep 2s
+Type "Created Room"
+Enter
+Sleep 1s
+Type "1"
+Sleep 1
+Down
+Sleep 1
+Enter
+Sleep 2s
+Type "This is another room"
+Enter
+Escape
+Sleep 1s
+Type "2"
+Down
+Sleep 1s
+Enter
+Sleep 2s
+Type "This is a private room with Clara"
+Sleep 1s
+Enter
+Escape
+Sleep 2s
 Type "q"
 

@@ -170,7 +170,6 @@ where
                 hub.usernames()
             };
 
-            println!("Current users {:?}", usernames);
             send_msg(writer, TypeS2C::UserList { users: usernames }).await;
 
             {
