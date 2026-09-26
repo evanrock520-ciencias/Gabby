@@ -126,7 +126,7 @@ mensajes de entrada, secuestrando el control de la interfaz hasta que el modal s
 La presentación de la interfaz depende en gran medida de los datos mostrados. Es bastante intuitivo modelar los datos
 básicos dado el contexto: \textbf{User} y \textbf{Room}. El usuario guarda un username y un estado.
 La sala guarda un roomname, una lista de usuarios y un historial de mensajes (dado que el servidor no tiene persistencia).
-Presisamente por eso, \textbf{Session} almacena en memoria el estado de un cliente, es decir su identidad,
+Precisamente por eso, \textbf{Session} almacena en memoria el estado de un cliente, es decir su identidad,
 sus salas disponibles, los usuarios conectados, las salas globales y los mensajes privados.
 
 \subsubsection*{Capa de Red}
@@ -257,5 +257,20 @@ en este caso la instancia global del \textbf{Hub}, entre múltiples tareas de fo
 a una variable, el \texttt{Mutex} envuelve directamente al dato, de modo que resulta imposible acceder a 
 él o mutarlo sin antes adquirir el cerrojo.
 
-\subsubsection*{Enrutamiento y Protocolo}
-% TODO: Explicar el enrutamiento de los mensajes del protocolo
+\subsubsection*{Enrutamiento y Protocolo} 
+
+\textbf{Rust} permite modelar información mediante \textbf{tipos de datos suma} a través de sus
+enumeraciones. Un tipo suma representa un valor que solo puede adoptar una de varias formas posibles,
+donde cada variante puede llevar asociados datos de tipos distintos entre sí. Los \textbf{tipos de datos suma}, 
+ofrecen importantes ventajas de seguridad de tipos, en particular la posibilidad de realizar \textbf{pattern matching}
+exhaustivo, es decir un manejo explícito de todos los casos con verificación del compilador.
+
+El \textbf{protocolo} del servidor modela la comunicación mediante dos tipos suma: \textbf{ClientMessage}, que representa
+los mensajes enviados del cliente al servidor, y \textbf{ServerMessage}, que representa los mensajes enviados del servidor
+al cliente. Ambos tipos de dato, se serializan y deserializan con la biblioteca de \textbf{serde}, por medio del etiquetado 
+interno.
+
+Los mensajes \textbf{deserializados} válidos se delegan a una función \textbf{router}, la cual realiza internamente un
+\textit{match} sobre el \textbf{ClientMessage}. El \textbf{pattern matching} permite mapear fácilmente cada variante a 
+una función auxiliar \textbf{handler}, encargada de manejar la operación correspondiente, típicamente modificando el estado
+global y difundiendo mensajes \textbf{ServerMessage} al resto de los clientes.
