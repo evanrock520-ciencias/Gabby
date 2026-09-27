@@ -52,7 +52,7 @@ func (manager *ConnectionManager) Listen() {
 
 		if err != nil {
 			log.Printf("Invalid message: %s", line)
-			return
+			continue
 		}
 
 		manager.incoming <- msg
