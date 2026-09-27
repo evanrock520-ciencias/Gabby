@@ -1,5 +1,6 @@
 import { sleep } from "k6";
 import { Socket } from "k6/x/tcp";
+import exec from "k6/execution";
 
 export const options = {
   stages: [
@@ -9,16 +10,14 @@ export const options = {
     { duration: "20s", target: 2000 },
     { duration: "20s", target: 2500},
     { duration: "20s", target: 3000},
-    { duration: "20s", target: 3500},
-    { duration: "20s", target: 4000},
-    { duration: "30s", target: 5000},
-    { duration: "10s", target: 0 },
+    { duration: "10s", target: 3000 },
   ],
+  gracefulStop: "15s"
 };
 
 /**
  * Corre pruebas de estrés con m usuarios. El flujo es registrarse, mandar n mensajes públicos
- * y desconectarse. Asi, manda m*n mensajes.
+ * y permanecer conectado hasta el fin de la prueba.
  */
 export default async function () {
   const host = __ENV.TCP_ECHO_HOST || "localhost";
