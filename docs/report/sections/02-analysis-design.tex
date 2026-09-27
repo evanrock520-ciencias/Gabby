@@ -1,4 +1,5 @@
 \section{Análisis y Diseño}
+\label{sec:analisis-diseno}
 
 El \textbf{Chat Multicliente} puede dividirse fundamentalmente en dos programas independientes:
 \textbf{cliente} y \textbf{servidor}. La comunicación entre ambas partes se realiza con \textbf{JSON}
@@ -61,7 +62,7 @@ La vista principal se compone de cuatro paneles persistentes organizados en pant
 \begin{table}[h]
     \centering
     \begin{tabular}{lp{11cm}}
-        \textbf{Panel} & \textbf{Descripción} \\
+        \textbf{Panel} & \textbf{Descripción} \\ \hline
         \textbf{Panel de cuartos} & Permite visualizar las salas a las que pertenece el usuario. \\
         \textbf{Panel de usuarios} & Despliega la lista de usuarios conectados en el servidor. \\
         \textbf{Panel de chat} & Es el panel principal de la aplicación. Contiene un \textit{viewport} para el scroll y visualización de texto, y un \textit{textinput} para manejar el envío de mensajes. \\
@@ -77,7 +78,7 @@ al contenido principal que bloquean temporalmente la interacción con el resto d
 \begin{table}[h]
     \centering
     \begin{tabular}{lp{11cm}}
-        \textbf{Modal} & \textbf{Descripción} \\
+        \textbf{Modal} & \textbf{Descripción} \\ \hline
         \textbf{Input Modal} & Captura cadenas de texto del usuario. \\
         \textbf{List Modal} & Permite la selección simple o múltiple de los items mostrados por una lista. \\
         \textbf{Confirm Modal} & Permite ejecutar operaciones binarias excluyentes. \\
@@ -225,16 +226,14 @@ un canal MPSC (\textit{Multiple Producer, Single Consumer}). El canal permite de
 socket, y permitir que cada conexión se gestione sola.
 
 Después de la identificación, la \textbf{task} entra en un bucle que multiplexa dos fuentes de eventos
-asíncronos mediante la macro \texttt{tokio::select!}:
+asíncronos.
 
 \begin{enumerate}
-
     \item \textbf{Lectura del Socket}: Escucha los mensajes que llegan a través del socket TCP, deserializa el mensaje
         y lo transfiere al \textbf{enrutador} para ejecutar la acción correspondiente.
 
     \item \textbf{Lectura del Canal}: Escucha los mensajes entrantes al canal, extra el mensaje y lo transmite por el socket
         TCP hacia el cliente.
-
 \end{enumerate}
 
 Mediante este mecanismo, el runtime suspende la tarea hasta que alguno de los dos \textit{futures} esté
@@ -247,15 +246,8 @@ listo, procesando de inmediato el primer evento disponible.
     \label{fig:server-sequence} 
 \end{figure}
 
-Las \textbf{tasks} necesitan modificar concurrentemente el estado global de la sesión (\textbf{Hub}) 
-para realizar la mayoría de las operaciones del protocolo. Una solución idiomática en \textbf{Rust} 
-para este problema es la combinación \texttt{Arc$<$Mutex$<$Hub$>$$>$}. Por un lado, \texttt{Arc} (\textit{Atomically 
-Reference Counted}) es un apuntador inteligente que permite compartir la propiedad de un mismo dato, 
-en este caso la instancia global del \textbf{Hub}, entre múltiples tareas de forma segura. Por otro lado, 
-\texttt{Mutex}, aunque cumple una función similar a un semáforo en la mayoría de los lenguajes, en 
-\textbf{Rust} se comporta de manera distinta: en lugar de ser un mecanismo externo que protege el acceso 
-a una variable, el \texttt{Mutex} envuelve directamente al dato, de modo que resulta imposible acceder a 
-él o mutarlo sin antes adquirir el cerrojo.
+Cada conexión necesita acceder y mutar concurrentemente el estado global del sistema. El \textbf{Hub} se comparte mediante
+múltiples tareas por medio de \textbf{exclusión mutua}, que permiten modificar el estado compartido de manera segura.
 
 \subsubsection*{Enrutamiento y Protocolo} 
 
