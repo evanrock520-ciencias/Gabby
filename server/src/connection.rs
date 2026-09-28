@@ -1,10 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, split},
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt, split},
     sync::{broadcast, mpsc},
 };
 
+use futures::StreamExt;
+use tokio_util::codec::{FramedRead, LinesCodec};
 use crate::protocol::status::Status;
 use crate::{
     client::Client,
@@ -34,7 +36,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let (reader, mut writer) = split(stream);
-    let mut reader = BufReader::new(reader);
+    let mut reader = FramedRead::new(reader, LinesCodec::new_with_max_length(1024 * 1024));
     let (tx, mut rx) = mpsc::unbounded_channel::<TypeS2C>();
 
     let _username = tokio::select! {
@@ -57,41 +59,38 @@ where
         }
     };
 
-    let mut line = String::new();
     loop {
-        line.clear();
-
         tokio::select! {
             _ = shutdown.recv() => {
                 break;
             }
 
-            result = reader.read_line(&mut line) => {
-                match result {
-                    Ok(0) => break,
-                    Ok(_) => {
-                      let trimmed = line.trim();
-                      if trimmed.is_empty() {
-                          continue;
-                      }
-
-                      match serializer::deserialize(trimmed) {
-                        Ok(ClientMessage::Disconnect) => {
-                            break;
+            frame = reader.next() => {
+                match frame {
+                    None => break,
+                    Some(Err(_)) => {
+                        send_msg(&mut writer, new_response(TypeC2S::Invalid, MessageResult::Invalid, None)).await;
+                        break;
+                    }
+                    Some(Ok(line)) => {
+                        let trimmed = line.trim();
+                        if trimmed.is_empty() {
+                            continue;
                         }
-                        Ok(msg) => {
-                            if let Err(err) = route_msg(msg, &_username, &hub, &mut writer).await {
-                                send_msg(&mut writer, new_response(TypeC2S::Invalid, err, None)).await;
+                        match serializer::deserialize(trimmed) {
+                            Ok(ClientMessage::Disconnect) => break,
+                            Ok(msg) => {
+                                if let Err(err) = route_msg(msg, &_username, &hub, &mut writer).await {
+                                    send_msg(&mut writer, new_response(TypeC2S::Invalid, err, None)).await;
+                                    break;
+                                }
+                            }
+                            Err(_) => {
+                                send_msg(&mut writer, new_response(TypeC2S::Invalid, MessageResult::Invalid, None)).await;
                                 break;
                             }
-                        },
-                        Err(_) => {
-                            send_msg(&mut writer, new_response(TypeC2S::Invalid, MessageResult::Invalid, None)).await;
-                            break;
                         }
-                      }
                     }
-                    Err(_) => break,
                 }
             }
 
@@ -126,7 +125,7 @@ where
 /// El nombre de usuario del cliente conectado.
 ///
 async fn identify<R, W>(
-    reader: &mut BufReader<R>,
+    reader: &mut FramedRead<R, LinesCodec>,
     writer: &mut W,
     tx: mpsc::UnboundedSender<TypeS2C>,
     _hub: &Arc<Mutex<Hub>>,
@@ -135,10 +134,13 @@ where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    let mut line: String = String::new();
-    if reader.read_line(&mut line).await.is_err() {
-        return Err(MessageResult::NotIdentified);
-    }
+    let line = loop {
+        match reader.next().await {
+            Some(Ok(line)) if line.trim().is_empty() => continue,
+            Some(Ok(line)) => break line,
+            _ => return Err(MessageResult::NotIdentified),
+        }
+    };
 
     let Ok(msg) = serializer::deserialize(line.trim()) else {
         return Err(MessageResult::NotIdentified);
@@ -177,11 +179,6 @@ where
                 ),
             )
             .await;
-
-            let usernames = {
-                let hub = _hub.lock().unwrap();
-                hub.usernames()
-            };
 
             {
                 let hub = _hub.lock().unwrap();
@@ -396,7 +393,7 @@ async fn handle_invite<W>(
                 roomname: roomname.to_string(),
             };
 
-            hub.send_to_members(msg, username, truly_invited).unwrap();
+            let _ = hub.send_to_members(msg, username, truly_invited);
         }
 
         Err((err, extra)) => {
@@ -442,7 +439,7 @@ where
 
             {
                 let hub = hub.lock().unwrap();
-                hub.to_room(msg, roomname, username).unwrap();
+                let _ = hub.to_room(msg, roomname, username);
             }
         }
 
@@ -481,7 +478,7 @@ where
                 roomname: roomname.to_string(),
             };
             let hub = hub.lock().unwrap();
-            hub.to_room(msg, roomname, username).unwrap();
+            let _ = hub.to_room(msg, roomname, username);
         }
 
         Err(e) => {
@@ -559,7 +556,10 @@ async fn handle_room_text<W>(
 
     let result = {
         let hub = hub.lock().unwrap();
-        if !hub.is_member_of(username, roomname) {
+
+        if !hub.is_room(roomname) {
+            Err(MessageResult::NoSuchRoom)
+        } else if !hub.is_member_of(username, roomname) {
             Err(MessageResult::NotJoined)
         } else {
             hub.to_room(msg, roomname, username)
