@@ -183,8 +183,6 @@ where
                 hub.usernames()
             };
 
-            send_msg(writer, TypeS2C::UserList { users: usernames }).await;
-
             {
                 let hub = _hub.lock().unwrap();
                 hub.broadcast(
