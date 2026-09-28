@@ -3,9 +3,43 @@
 \usepackage[spanish]{babel}
 \usepackage[top=2cm, bottom=2cm, left=2.5cm, right=2.5cm]{geometry}
 
-\usepackage{listings}
+\usepackage{listings, listings-rust}
 \usepackage{graphicx}
+\graphicspath{{figures/}{../mockups/}}
 \usepackage{caption}
+\usepackage{enumitem}
+\usepackage{dirtree}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{biblatex}
+
+\addbibresource{refs.bib}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
 
 \title{Chat Multicliente}
 \author{Evan Miranda}
@@ -13,13 +47,29 @@
 
 \begin{document}
 
-% TODO: Hacer una portada
-\maketitle
+\begin{titlepage}
+\centering
+{\bfseries\LARGE Universidad Nacional Autónoma de México \par}
+\vspace{1cm}
+{\scshape\Large Facultad de Ciencias \par}
+\vspace{3cm}
+{\scshape\Huge Chat Multicliente \par}
+\vspace{3cm}
+{\itshape\Large Primer proyecto de Modelado y Programación \par}
+\vfill
+{\Large Autor: \par}
+{\Large Evan Miranda Martínez \par}
+\vfill
+{\Large Septiembre 2026 \par}
+\end{titlepage}
 
  \input{sections/00-abstract.tex}
  \input{sections/01-introduction.tex}
  \input{sections/02-analysis-design.tex}
  \input{sections/03-implementation.tex}
  \input{sections/04-conclusions.tex}
+
+\nocite{*}
+\printbibliography 
 
 \end{document}

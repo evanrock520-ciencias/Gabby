@@ -8,6 +8,10 @@ const (
 	RoomDM
 )
 
+// GlobalRoomID es el identificador para la sala global,
+// Tiene más de 16 carácteres para no tener colisiones con el protocolo.
+const GlobalRoomID = "__gabby_global_lobby_chat_myp__"
+
 // ChatEntry es cualquier cosa que puede mostrarse en el historial del chat.
 type ChatEntry interface {
 	chatEntry()
@@ -67,7 +71,7 @@ func (room *Room) CanLeave() bool {
 func (room *Room) Title() string {
 	switch room.kind {
 	case RoomGlobal:
-		return "Global"
+		return "✦ Global"
 	case RoomDM:
 		return "@" + room.targetUser
 	default:

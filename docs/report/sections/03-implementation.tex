@@ -1,2 +1,338 @@
 \section{Implementación}
-Este es el contenido de la implementación.
+
+\subsection*{Estructura}
+
+Dado el alcance del proyecto, la organización del repositorio se realizó mediante un \textbf{monorepo}. Lo anterior,
+permite centralizar el código tanto del cliente, como del servidor, y orquestar tareas comúnes de desarrollo.
+
+\dirtree{%
+    .1 ./.
+    .2 client/.
+    .3 cmd/.
+    .4 client/.
+    .3 internal/.
+    .4 domain/.
+    .4 network/.
+    .4 protocol/.
+    .4 ui/.
+    .5 messages/.
+    .5 panels/.
+    .5 styles/.
+    .2 docs/.
+    .3 mockups/.
+    .3 report/.
+    .4 figures/.
+    .4 sections/.
+    .3 tapes/.
+    .2 server/.
+    .3 src/.
+    .4 protocol/.
+    .2 stress/.
+}
+
+Por un lado, el \textbf{Client} se organiza siguiendo la
+\href{https://github.com/golang-standards/project-layout/blob/master/README_es.md}{Standard Go
+Project Layout}, la organización estándar de proyectos en \textbf{Go}. Utiliza \textbf{cmd} para
+el punto de entrada del cliente e \textbf{internal} para organizar el código interno, relacionado
+tanto con la lógica de negocio como con la vista de usuario.
+
+Por otro lado, el \textbf{servidor} se organiza de una manera más simple, en un único
+\textbf{crate} que centraliza el comportamiento general de la aplicación. Únicamente el protocolo
+se separa en su propio módulo.
+
+\subsection*{Dependencias}
+
+Las dependencias del desarrollo se listan en la la tabla \ref*{tab:requisitos}.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{ll}
+        \textbf{Componente} & \textbf{Versión} \\ \hline
+        \textbf{Go} & 1.26.6 \\
+        \textbf{Bubble Tea} & 1.3.10 \\
+        \textbf{Lipgloss} & 1.1.0 \\
+        \textbf{Bubbles} & 1.0.0 \\
+        \textbf{Rust} & 1.97.1 \\
+        \textbf{Tokio} & 1.53.1 \\
+        \textbf{Serde} & 1.0.229 \\
+        \textbf{Serde JSON} & 1.0.151 \\
+        \textbf{Just} & 1.57.0 \\
+        \textbf{Prek} & 0.5.0 \\
+        \textbf{k6} & 2.3.0 \\
+        \textbf{xk6-tcp} & main \\
+    \end{tabular}
+    \caption{Requisitos y dependencias del proyecto.}
+    \label{tab:requisitos}
+\end{table}
+
+\subsection*{Flujo de Trabajo}
+
+Para unificar los sistemas de compilación, ejecución de pruebas unitarias, documentación y ejecución de ambos
+programas, se utilizó \textbf{Just}. Por ejemplo, el siguiente comando realiza el build tanto del cliente como del servidor.
+
+\begin{lstlisting}[language=bash]
+    just build
+\end{lstlisting}
+
+Además, para mantener una consistencia de código se utiliza \textbf{Prek} para realizar un formateo del código,
+tanto de \textbf{Rust} como de \textbf{Go}, antes de cada commit.
+
+La mayoría del flujo inicial se basó en el flujo de trabajo \textit{code a little, test a little}. Las pruebas unitarias
+se ejecutan en \textbf{workflows} de \textbf{integración continua} durante cada push.
+
+\subsection*{Servidor}
+
+Observemos como se translada el modelo del servidor al código. 
+
+\subsubsection*{Multiplexado}
+
+La macro \texttt{tokio::select!} permite ejecutar concurrentemente varias expresiones en la misma \textbf{task}. De está manera, 
+ambas fuentes de eventos alternan su ejecución dependiendo del cumplimiento de las ramas.
+
+\begin{lstlisting}[language=Rust]
+tokio::select! {
+    // 1. Lectura del socket TCP
+    result = reader.read_line(&mut line) => {
+        match result {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                if let Ok(msg) = serializer::deserialize(&line) {
+                    if let Err(err) = route_msg(msg, &_username, &hub, &mut writer).await {
+                        send_msg(&mut writer, new_response(TypeC2S::Invalid, err, None)).await;
+                        break;
+                    }
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    // 2. Recepcion de mensajes salientes desde el canal MPSC
+    Some(msg) = rx.recv() => {
+        send_msg(&mut writer, msg).await;
+    }
+
+    else => break,
+}
+\end{lstlisting}
+
+\subsubsection*{Enrutamiento}
+
+La función de enrutamiento implementa el patrón de descrito en la \autoref{sec:analisis-diseno}: recibe un 
+\texttt{ClientMessage} ya deserializado y, mediante un \texttt{match} exhaustivo sobre sus variantes, delega 
+la operación correspondiente a una función \textit{handler} específica.
+
+\begin{lstlisting}[language=Rust]
+async fn route_msg<W>(
+    msg: ClientMessage,
+    username: &str,
+    hub: &Arc<Mutex<Hub>>,
+    writer: &mut W,
+) -> Result<(), MessageResult>
+where
+    W: AsyncWrite + Unpin,
+{
+    match msg {
+        ClientMessage::Users => handle_users_list(hub, writer).await,
+        ClientMessage::Status { status } => handle_status(username, status, hub).await,
+        ClientMessage::PublicText { text } => handle_public_text(username, &text, hub).await,
+        ClientMessage::NewRoom { roomname } => {
+            handle_create_room(username, &roomname, hub, writer).await?;
+        }
+        ...
+    }
+}
+\end{lstlisting}
+
+\subsubsection*{Estado Compartido}
+
+La mayoría de funciones \texttt{handler} recibe un \texttt{\&Arc$<$Mutex$<$Hub$>$$>$}. Está es una manera popular en la comunidad
+de \textbf{Rust} para implementar el \textbf{estado compartido por exclusión mutua} para realizar modificaciones en un estado global.
+Sin embargo, la cautela al abrir el bloqueo tiene que realizarse minuciosamente y abarcando la menor cantidad de 
+operaciones.
+
+Por ejemplo, apoyanse ampliamente de \textit{scopes} resulta indispensable. 
+
+\begin{lstlisting}[language=Rust]
+let result = {
+    let hub = hub.lock().unwrap();
+    hub.send_to(&msg, sender, receiver)
+    // El hub se libera al salir de este scope
+};
+
+match result {
+    Ok(_) => {}
+    Err(e) => {
+        send_msg(
+            writer,
+            new_response(TypeC2S::Text, e, Some(receiver.to_string())),
+        )
+        .await;
+    }
+}
+\end{lstlisting}
+
+\subsection*{Cliente}
+
+\subsubsection*{Concurrencia en el Cliente}
+
+Mantener sincronizada la interfaz de usuario con el estado global del servidor sin bloquear el hilo de
+renderizado es una tarea indispensable para aplicaciones con interfaces visuales. Por está razón, la 
+concurrencia resulta igual de necesaria en la capa del \textbf{cliente} que en \textbf{servidor}; no quieres
+ofrecer una experiencia de usuario lenta y poco responsiva.
+
+La conexión se encuentra desacoplada de la interfaz y corre en una \textbf{goroutine} secundaria. Por cada
+línea que lee del buffer, si no está malformada, se deserializa y se envía a un canal.
+
+\begin{lstlisting}[language=Go]
+// Listen escucha los mensajes del servidor al cliente y los manda a traves de un canal
+func (manager *ConnectionManager) Listen() {
+	for {
+		line, err := manager.reader.ReadString('\n')
+		if err != nil {
+			log.Printf("Connection closed: %v", err)
+			return
+		}
+
+		msg, err := protocol.Deserialize(line)
+
+		if err != nil {
+			log.Printf("Invalid message: %s", line)
+			continue
+		}
+
+		manager.incoming <- msg
+	}
+}
+\end{lstlisting}
+
+El modelo principal espera mensajes de ese canal. Cuando recibe alguno, retorna un comando con el mensaje
+ya deserializado.
+
+\begin{lstlisting}[language=Go]
+func (m Model) waitForServerMsg() tea.Cmd {
+    return func() tea.Msg {
+        return <-m.conn.Messages()
+    }
+}
+\end{lstlisting}
+
+El mensaje es capturado por \textbf{Update} y delegado al \textit{router} de mensajes del servidor. Una vez
+procesado, el modelo se resubscribe al canal en espera de más mensajes.
+
+\begin{lstlisting}[language=Go]
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+
+	case protocol.ClientMessage:
+		return m, m.routeClientMessage(msg)
+
+	case protocol.ServerMessage:
+		cmd := m.routeServerMessage(msg)
+        // Se resuscribe al canal
+		return m, tea.Batch(cmd, m.waitForServerMsg())
+
+	return m, nil
+}
+\end{lstlisting}
+
+\subsection*{Modales}
+
+Los modales utilizados en la interfaz por terminal implementan la interfaz descrita en la
+\autoref{fig:modals-uml}. Cada tipo de modal (\texttt{Input}, \texttt{List}, \texttt{Confirm},
+\texttt{Notification}) satisface esta interfaz, lo que permite al modelo raíz tratarlos de manera
+uniforme.
+
+El modelo raíz contiene un campo \texttt{activeModal} que implementa la máquina de estados descrita
+en el diseño: mientras este campo esté activo, se le delega la totalidad del flujo de entrada hasta
+resolverse.
+
+\begin{lstlisting}[language=Go]
+type Modal interface {
+    InputCapturer
+    Init() tea.Cmd
+    Update(msg tea.Msg) (Modal, tea.Cmd)
+    View() string
+    Focus() tea.Cmd
+    SetSize(width, height int)
+}
+\end{lstlisting}
+
+Por ejemplo, un evento puede invocar la creación de un modal y establecerlo en la vista principal.
+
+\begin{lstlisting}[language=Go]
+case "c":
+    return m.openModal(panels.NewInputModal("Create Room", "Roomname", 16, func(value string) tea.Msg {
+        room, _ := protocol.NewRoomMessage(value)
+        return room
+    }, true))
+\end{lstlisting}
+
+La función \texttt{openModal} realiza la transición de estado \textit{sin modal} a \textit{modal
+activo}, y espera a que el modal se resuelva en algún momento posterior.
+
+\begin{lstlisting}[language=Go]
+func (m *Model) openModal(modal panels.Modal) tea.Cmd {
+    modal.SetSize(m.width, max(0, m.heigth-3))
+    m.chatModel.Blur()
+    cmd := modal.Focus()
+    m.activeModal = modal
+    // Inicializa el modal
+    return tea.Batch(cmd, modal.Init())
+}
+\end{lstlisting}
+
+Cuando el servidor responde exitosamente a la operación solicitada por el modal, el enrutador de mensajes 
+del servidor resuelve el flujo: cierra el modal activo
+y actualiza el estado local con la nueva información.
+
+\begin{lstlisting}[language=Go]
+if msg.Result == protocol.SUCCESS {
+    m.closeModal()
+
+    room := m.session.AddRoom(domain.RoomChannel, msg.Extra)
+    m.roomsModel.AddItem(NewRoomItem(room))
+}
+\end{lstlisting}
+
+Finalmente, \texttt{closeModal} realiza la transición inversa, devolviendo la interfaz al estado sin
+captura.
+
+\begin{lstlisting}[language=Go]
+func (m *Model) closeModal() {
+    m.activeModal = nil
+    m.syncFocus()
+}
+\end{lstlisting}
+
+\subsection*{Resultados}
+
+Agregado a las pruebas unitarias, se crearon pruebas de éstres mediante una extensión de \textbf{K6} personalizada
+para TCP, \textbf{xk6-tcp}. Las pruebas simulan un flujo concurrente de alta carga: 
+
+\begin{enumerate}
+    \item Conecta \textbf{3000} usuarios distribuidos en varias etapas.
+    \item Cada usuario envía 5 mensajes públicos y espera 10 segundos.
+    \item El usuario se desconecta.
+\end{enumerate}
+
+Los resultados obtenidos, se muestran en la siguiente tabla \ref{tab:estres}.
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lrr}
+        \hline
+        \textbf{Métrica} & \textbf{Total} & \textbf{Promedio} \\ \hline
+        Pico de usuarios concurrentes & 3,000 & -- \\
+        Conexiones TCP totales & 17,608 & 143.14 conn/s \\
+        Errores de conexión & 1 & -- \\
+        Escrituras TCP & 122,030 & 992.00 op/s \\
+        Lecturas TCP & 2,582,224 & 20,991.38 op/s \\
+        Datos enviados por clientes & 7.1 MB & 58 kB/s \\
+        Datos distribuidos por servidor & 583 MB & 4.7 MB/s \\
+        \hline
+    \end{tabular}
+    \caption{Resultados de la prueba de estrés TCP.}
+    \label{tab:estres}
+\end{table}

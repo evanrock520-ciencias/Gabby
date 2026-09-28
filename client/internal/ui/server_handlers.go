@@ -71,8 +71,7 @@ func (m *Model) handleUserList(msg protocol.ServerMessage) tea.Cmd {
 func (m *Model) handleNewUser(msg protocol.ServerMessage) tea.Cmd {
 	user := domain.User{Username: msg.Username, Status: domain.ACTIVE}
 
-	global, _ := m.session.GetRoom("Global")
-	m.chatModel.AddEntry(global, domain.ChatEvent{Text: fmt.Sprintf("%s has joined the chat", msg.Username)})
+	m.chatModel.AddEntry(m.session.Global, domain.ChatEvent{Text: fmt.Sprintf("%s has joined the chat", msg.Username)})
 	m.session.Users = append(m.session.Users, user)
 	m.usersModel.AddItem(NewUserItem(user))
 
@@ -99,9 +98,8 @@ func (m *Model) handleInvitation(msg protocol.ServerMessage) tea.Cmd {
 // handlePublicTextFrom maneja la llegada de mensajes globales.
 func (m *Model) handlePublicTextFrom(msg protocol.ServerMessage) tea.Cmd {
 	chatMsg := domain.ChatMessage{Username: msg.Username, Message: msg.Text}
-	room, _ := m.session.GetRoom("Global")
 
-	m.chatModel.AddEntry(room, chatMsg)
+	m.chatModel.AddEntry(m.session.Global, chatMsg)
 	return nil
 }
 
@@ -151,8 +149,7 @@ func (m *Model) handleRoomUserList(msg protocol.ServerMessage) tea.Cmd {
 
 // handleDisconnected maneja la desconexión de algún usuario del servidor.
 func (m *Model) handleDisconnected(msg protocol.ServerMessage) tea.Cmd {
-	global, _ := m.session.GetRoom("Global")
-	m.chatModel.AddEntry(global, domain.ChatEvent{Text: fmt.Sprintf("%s has left the chat", msg.Username)})
+	m.chatModel.AddEntry(m.session.Global, domain.ChatEvent{Text: fmt.Sprintf("%s has left the chat", msg.Username)})
 
 	m.session.RemoveUser(msg.Username)
 	m.usersModel.RemoveItem(msg.Username)

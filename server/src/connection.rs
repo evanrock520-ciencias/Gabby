@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, split},
-    sync::mpsc,
+    sync::{broadcast, mpsc},
 };
 
 use crate::protocol::status::Status;
@@ -25,7 +25,11 @@ use crate::{
 /// * `stream` - El stream bidireccional establecido con el cliente.
 /// * `hub` - Referencia compartida al hub central del servidor.
 ///
-pub async fn handle<S>(stream: S, hub: Arc<Mutex<Hub>>) -> std::io::Result<()>
+pub async fn handle<S>(
+    stream: S,
+    hub: Arc<Mutex<Hub>>,
+    mut shutdown: broadcast::Receiver<()>,
+) -> std::io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -33,18 +37,23 @@ where
     let mut reader = BufReader::new(reader);
     let (tx, mut rx) = mpsc::unbounded_channel::<TypeS2C>();
 
-    let _username = match identify(&mut reader, &mut writer, tx, &hub).await {
-        Ok(name) => name,
-        Err(MessageResult::NotIdentified) => {
-            send_msg(
-                &mut writer,
-                new_response(TypeC2S::Invalid, MessageResult::NotIdentified, None),
-            )
-            .await;
+    let _username = tokio::select! {
+        _ = shutdown.recv() => {
             return Ok(());
         }
-        Err(_) => {
-            return Ok(());
+        res = identify(&mut reader, &mut writer, tx, &hub) => match res {
+            Ok(name) => name,
+            Err(MessageResult::NotIdentified) => {
+                send_msg(
+                    &mut writer,
+                    new_response(TypeC2S::Invalid, MessageResult::NotIdentified, None),
+                )
+                .await;
+                return Ok(());
+            }
+            Err(_) => {
+                return Ok(());
+            }
         }
     };
 
@@ -53,6 +62,10 @@ where
         line.clear();
 
         tokio::select! {
+            _ = shutdown.recv() => {
+                break;
+            }
+
             result = reader.read_line(&mut line) => {
                 match result {
                     Ok(0) => break,
@@ -170,7 +183,6 @@ where
                 hub.usernames()
             };
 
-            println!("Current users {:?}", usernames);
             send_msg(writer, TypeS2C::UserList { users: usernames }).await;
 
             {

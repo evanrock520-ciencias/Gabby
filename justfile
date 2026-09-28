@@ -33,11 +33,11 @@ lint-server:
 
 lint: lint-client lint-server
 
-run-client: build-client
-    cd client && ./bin/client
+run-client arg="127.0.0.1:9090": build-client
+    cd client && ./bin/client {{arg}}
 
-run-server: build-server
-    cd server && cargo run
+run-server arg="127.0.0.1:9090": build-server
+    cd server && cargo run {{arg}}
 
 clean-client:
     cd client && rm -rf ./bin
@@ -50,5 +50,5 @@ clean: clean-client clean-server
 docs:
     cd docs/report && latexmk -pdf -interaction=nonstopmode main.tex
 
-view:
-  xdg-open docs/report/main.pdf
+stress:
+    ulimit -n 65535 && k6 run stress/stress.js

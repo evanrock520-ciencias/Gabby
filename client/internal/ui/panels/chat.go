@@ -87,7 +87,7 @@ func (m *ChatModel) SetSize(width int, height int) {
 	m.Panel.SetSize(width, height)
 
 	viewportWidth := max(0, width-4)
-	viewportHeight := max(0, height-4)
+	viewportHeight := max(0, height-5)
 
 	if !m.ready {
 		m.Viewport = viewport.New(viewportWidth, viewportHeight)
@@ -195,11 +195,17 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 
 func (m ChatModel) View() string {
 	boxStyle := styles.BoxStyle.Width(m.width).Height(m.height)
+	innerWidth := max(0, m.width-2)
 	roomName := ""
+
 	if m.DisplayedRoom != nil {
 		roomName = m.DisplayedRoom.Title()
 	}
-	header := styles.ChatNameStyle.Width(m.width - 2).Render(roomName)
+
+	title := "[3] " + roomName
+
+	header := styles.HeaderTitleStyle.Width(innerWidth).Render(title)
+	divider := styles.DividerStyle.Render(strings.Repeat("─", innerWidth))
 
 	if m.IsFocused() {
 		boxStyle = boxStyle.BorderForeground(styles.PrimaryColor)
@@ -215,7 +221,7 @@ func (m ChatModel) View() string {
 		viewportContent = ""
 	}
 
-	return boxStyle.Render(header + "\n" + viewportContent + "\n" + messageBarStyle.Render(m.TextInput.View()))
+	return boxStyle.Render(header + "\n" + divider + "\n" + viewportContent + "\n" + messageBarStyle.Render(m.TextInput.View()))
 }
 
 func (m *ChatModel) sendToRoom(text string) tea.Cmd {

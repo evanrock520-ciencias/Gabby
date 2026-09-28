@@ -60,30 +60,39 @@ func (m *ListModal) Update(msg tea.Msg) (Modal, tea.Cmd) {
 				m.scrollToCursor()
 			}
 		case " ":
-			if len(m.items) == 0 || m.cursor < 0 || m.cursor >= len(m.items) {
+			if len(m.items) == 0 {
 				return m, nil
 			}
-			value := m.items[m.cursor].Value()
-			// log.Printf("Value selected %s", value)
+
 			if m.multi {
+				value := m.items[m.cursor].Value()
 				if _, ok := m.selected[value]; ok {
 					delete(m.selected, value)
 				} else {
 					m.selected[value] = struct{}{}
 				}
-			} else {
-				m.active = false
-				return m, func() tea.Msg { return m.onDone([]string{value}) }
+				return m, nil
 			}
+
+			fallthrough
+
 		case "enter":
+			if len(m.items) == 0 {
+				return m, nil
+			}
+			m.active = false
+
 			if m.multi {
-				m.active = false
 				values := make([]string, 0, len(m.selected))
 				for v := range m.selected {
 					values = append(values, v)
 				}
 				return m, func() tea.Msg { return m.onDone(values) }
 			}
+
+			value := m.items[m.cursor].Value()
+			return m, func() tea.Msg { return m.onDone([]string{value}) }
+
 		case "esc":
 			m.active = false
 		}
