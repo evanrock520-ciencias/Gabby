@@ -48,7 +48,17 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) waitForServerMsg() tea.Cmd {
 	return func() tea.Msg {
-		return <-m.conn.Messages()
+		msg, ok := <-m.conn.Messages()
+
+		if !ok {
+			return messages.ShowNotification{
+				Prompt:       "An error has ocurred",
+				Notification: "The server has shutdown.",
+				IsFatal:      true,
+			}
+		}
+
+		return msg
 	}
 }
 

@@ -44,7 +44,7 @@ func (manager *ConnectionManager) Listen() {
 	for {
 		line, err := manager.reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Connection closed: %v", err)
+			close(manager.incoming)
 			return
 		}
 
