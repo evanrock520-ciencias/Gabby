@@ -11,6 +11,9 @@
 \usepackage{dirtree}
 \usepackage{hyperref}
 \usepackage{xcolor}
+\usepackage{biblatex}
+
+\addbibresource{refs.bib}
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
@@ -44,8 +47,6 @@
 
 \begin{document}
 
-% TODO: Hacer una portada
-
 \begin{titlepage}
 \centering
 {\bfseries\LARGE Universidad Nacional Autónoma de México \par}
@@ -67,5 +68,8 @@
  \input{sections/02-analysis-design.tex}
  \input{sections/03-implementation.tex}
  \input{sections/04-conclusions.tex}
+
+\nocite{*}
+\printbibliography 
 
 \end{document}
