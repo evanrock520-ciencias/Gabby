@@ -28,7 +28,7 @@ organizada siguiendo la filosofía de la **Arquitectura ELM**.
 
 ## Servidor
 
-El servidor será desarrollado con el lenguaje de programación **Rust**. La elección 
+El servidor fue desarrollado con el lenguaje de programación **Rust**. La elección 
 radica en la gran velocidad y seguridad que ofrece de fábrica el lenguaje y en la alta
 capacidad para sistemas concurrentes de la biblioteca **Tokio**
 
@@ -96,13 +96,25 @@ just test-client
 `server`
 
 ```bash
-just run-server
+just run-server <IP:PORT>
 ```
 
 `client`
 
 ```bash
-just run-client
+just run-client <IP:PORT>
+```
+
+## Pruebas de estrés
+
+Para correr las pruebas de estrés se debe compilar la [extensión de K6 para TCP](https://github.com/grafana/xk6-tcp).
+
+```bash
+go install go.k6.io/xk6@latest
+```
+
+```bash
+xk6 build --with github.com/grafana/xk6-tcp@latest
 ```
 
 ## Licencia
