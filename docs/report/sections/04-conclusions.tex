@@ -5,9 +5,11 @@ por completo el protocolo establecido en clase, además de incorporar una interf
 
 El servidor se desempeñó de manera bastante decente incluso bajo una carga considerable. Aunque esperaba
 que el sistema colapsara con un número mucho menor de usuarios concurrentes, los resultados muestran que soportó
-3,000 usuarios simultáneos con una tasa de error prácticamente nula, al menos en el escenario simulado.
+3,000 usuarios simultáneos con una tasa de error prácticamente nula, al menos en el escenario simulado por las
+pruebas de estrés. No obstante, las pruebas tuvieron sus propias limitaciones al ejecutarse en un entorno local y no 
+me permitieron detectar errores reales, como por ejemplo problemas en mi \textbf{framing}.
 
-Sin embargo, el proceso de desarrollo estuvo lleno de altibajos y de una carga de nuevos conocimientos
+El proceso de desarrollo estuvo lleno de altibajos y de una carga de nuevos conocimientos
 abismal. En retrospectiva, creo haber tomado algunas decisiones técnicas sobreestimando mi capacidad de
 aprendizaje y el tiempo disponible. Por ejemplo, desarrollar el proyecto en dos lenguajes con los que 
 tenía muy poca experiencia previa, o dedicar una cantidad considerable de tiempo a módulos no 
@@ -19,4 +21,4 @@ problemas, mismas que terminé pagando con refactorizaciones.
 
 Ahora que comprendo mejor las tecnologías con las que trabajé, espero poder modelar y anticipar mejor los próximos 
 proyectos. En particular, pretendo delimitar el alcance desde el inicio y administrar mejor mis módulos de
-trabajo, para no invertir tanto tiempo decidiendo en qué trabajar cada día.
+trabajo, para no invertir tanto tiempo arreglando problemas diagnósticables a partir de un buen diseño.
