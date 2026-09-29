@@ -196,7 +196,9 @@ func (m *Model) handleIdentifyResponse(msg protocol.ServerMessage) tea.Cmd {
 	if msg.Result == protocol.SUCCESS {
 		m.closeModal()
 		m.SetUsername(msg.Extra)
-		return nil
+
+		usersMsg, _ := protocol.UsersMessage()
+		return m.sendToServer(usersMsg)
 	}
 
 	if msg.Result == protocol.USER_ALREADY_EXISTS {

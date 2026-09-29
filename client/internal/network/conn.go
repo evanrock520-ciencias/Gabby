@@ -23,7 +23,7 @@ func (manager *ConnectionManager) Dial(addr string) {
 	}
 	manager.conn = conn
 	manager.reader = bufio.NewReader(conn)
-	manager.incoming = make(chan protocol.ServerMessage)
+	manager.incoming = make(chan protocol.ServerMessage, 100)
 	log.Printf("The connection was succesfull with %s", conn.LocalAddr())
 }
 

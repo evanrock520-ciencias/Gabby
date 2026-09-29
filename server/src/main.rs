@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::broadcast;
-use tokio::task::JoinSet;
 
 use crate::hub::Hub;
 
@@ -22,7 +21,6 @@ async fn main() {
     let listener = TcpListener::bind(&addr).await.unwrap();
     let hub = Arc::new(Mutex::new(Hub::new()));
     let (shutdown_tx, _) = broadcast::channel(1);
-    let mut tasks = JoinSet::new();
 
     println!("Waiting a connection on {}", listener.local_addr().unwrap());
 
@@ -35,7 +33,7 @@ async fn main() {
                         let client_hub = Arc::clone(&hub);
                         let shutdown_rx = shutdown_tx.subscribe();
 
-                        tasks.spawn(async move {
+                        tokio::spawn(async move {
                             if let Err(e) = connection::handle(socket, client_hub, shutdown_rx).await {
                                 eprintln!("Failed to handle the connection: {}", e);
                             }
@@ -55,7 +53,6 @@ async fn main() {
     }
 
     let _ = shutdown_tx.send(());
-    while let Some(_) = tasks.join_next().await {}
 
     println!("The server shut down.")
 }
