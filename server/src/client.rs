@@ -44,20 +44,6 @@ impl Client {
         &self.memberships
     }
 
-    /// Agrega una sala a las membresias del Cliente.
-    ///
-    /// # Arguments
-    ///
-    /// * `roomname` - El nombre de la sala.
-    ///
-    /// # Returns
-    ///
-    /// Retorna `true` si es miembro de la sala.
-    /// Retorna `false` si no es miembro de la sala.
-    pub fn has_membership(&self, roomname: &str) -> bool {
-        self.memberships.contains(&roomname.to_string())
-    }
-
     pub fn username(&self) -> &str {
         &self.username
     }

@@ -5,8 +5,6 @@ use tokio::{
     sync::{broadcast, mpsc},
 };
 
-use futures::StreamExt;
-use tokio_util::codec::{FramedRead, LinesCodec};
 use crate::protocol::status::Status;
 use crate::{
     client::Client,
@@ -19,6 +17,8 @@ use crate::{
         serializer,
     },
 };
+use futures::StreamExt;
+use tokio_util::codec::{FramedRead, LinesCodec};
 
 /// Maneja la conexión del cliente.
 ///
